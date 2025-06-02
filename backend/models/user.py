@@ -39,7 +39,7 @@ class User(BaseModel):
     last_login = Column(DateTime, nullable=True)
     
     # Relationships (to be defined in future tasks)
-    # api_keys = relationship("APIKey", back_populates="user")
+    api_keys = relationship("APIKey", back_populates="user")
     # workspaces = relationship("Workspace", back_populates="owner")
     
     def get_full_name(self) -> str:
