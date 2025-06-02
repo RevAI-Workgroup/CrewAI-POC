@@ -6,7 +6,9 @@ import os
 from typing import Optional, Type, TypeVar, Generic, List
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-import database
+
+# Import functions directly to avoid module attribute issues
+from database import create_tables, drop_tables, test_connection, get_database_url, engine
 from models.base import BaseModel
 
 # Type variable for generic model operations
@@ -23,7 +25,7 @@ class DatabaseManager:
         Initialize database tables
         """
         try:
-            database.create_tables()
+            create_tables()
             return True
         except SQLAlchemyError:
             return False
@@ -34,8 +36,8 @@ class DatabaseManager:
         Reset database by dropping and recreating tables
         """
         try:
-            database.drop_tables()
-            database.create_tables()
+            drop_tables()
+            create_tables()
             return True
         except SQLAlchemyError:
             return False
@@ -45,7 +47,7 @@ class DatabaseManager:
         """
         Check database health
         """
-        return database.test_connection()
+        return test_connection()
 
 class CRUDBase(Generic[ModelType]):
     """
@@ -61,7 +63,7 @@ class CRUDBase(Generic[ModelType]):
         """
         return db.query(self.model).filter(
             self.model.id == id,
-            self.model.is_deleted.is_(False)
+            self.model.is_deleted == False  # type: ignore
         ).first()
     
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100) -> List[ModelType]:
@@ -69,7 +71,7 @@ class CRUDBase(Generic[ModelType]):
         Get multiple records with pagination
         """
         return db.query(self.model).filter(
-            self.model.is_deleted.is_(False)
+            not self.model.is_deleted == False  # type: ignore
         ).offset(skip).limit(limit).all()
     
     def create(self, db: Session, obj_in: dict) -> ModelType:
@@ -119,8 +121,8 @@ def get_database_info() -> dict:
     Get database information and status
     """
     return {
-        "database_url": database.get_database_url(),
+        "database_url": get_database_url(),
         "is_testing": os.getenv("TESTING", "false").lower() == "true",
-        "connection_status": database.test_connection(),
-        "engine_info": str(type(database.engine))
+        "connection_status": test_connection(),
+        "engine_info": str(type(engine))
     } 
