@@ -10,7 +10,7 @@ The frontend React application requires a robust backend API to enable users to 
 
 ## User Stories
 - As a frontend developer, I need JWT authentication and user management
-- As a frontend developer, I need CRUD operations for graphs and workspaces
+- As a frontend developer, I need CRUD operations for graphs and thread
 - As a frontend developer, I need graph validation that ensures CrewAI compatibility
 - As a frontend developer, I need async CrewAI execution with queueing
 - As a frontend developer, I need real-time streaming of execution updates
@@ -35,7 +35,7 @@ The frontend React application requires a robust backend API to enable users to 
 ## Acceptance Criteria
 1. JWT + API key authentication system with user management
 2. PostgreSQL database with all required models and relationships
-3. CRUD operations for graphs, workspaces, threads, messages, and API keys
+3. CRUD operations for graphs, threads, messages, and API keys
 4. Graph validation service that ensures CrewAI compatibility
 5. CrewAI execution service with async processing and queueing
 6. SSE streaming for real-time execution updates

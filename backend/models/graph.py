@@ -186,7 +186,7 @@ class Graph(BaseModel):
         return len(self.get_edges())
     
     def get_thread_count(self) -> int:
-        """Get the number of threads (workspace conversations) for this graph"""
+        """Get the number of threads for this graph"""
         return len(getattr(self, 'threads', []))
     
     def __repr__(self) -> str:
