@@ -24,9 +24,8 @@ class Graph(BaseModel):
     # Tags for categorization
     tags = Column(String(500), nullable=True)  # Comma-separated tags
     
-    # Ownership and organization
+    # Ownership
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
-    workspace_id = Column(String(36), ForeignKey("workspaces.id"), nullable=False, index=True)
     
     # Status and control
     is_active = Column(Boolean, default=True, nullable=False)
@@ -34,11 +33,11 @@ class Graph(BaseModel):
     
     # Relationships
     user = relationship("User", back_populates="graphs")
-    workspace = relationship("Workspace", back_populates="graphs")
+    threads = relationship("Thread", back_populates="graph", cascade="all, delete-orphan")
     
     # Constraints
     __table_args__ = (
-        UniqueConstraint('workspace_id', 'name', name='uq_workspace_graph_name'),
+        UniqueConstraint('user_id', 'name', name='uq_user_graph_name'),
     )
     
     def set_graph_data(self, nodes: List[Dict[str, Any]], edges: List[Dict[str, Any]], metadata: Optional[Dict[str, Any]] = None) -> None:
@@ -176,7 +175,6 @@ class Graph(BaseModel):
         if getattr(self, 'is_template', False):
             return True
         
-        # TODO: Add workspace member check when we implement workspace membership
         return False
     
     def get_node_count(self) -> int:
@@ -186,6 +184,10 @@ class Graph(BaseModel):
     def get_edge_count(self) -> int:
         """Get the number of edges in the graph"""
         return len(self.get_edges())
+    
+    def get_thread_count(self) -> int:
+        """Get the number of threads (workspace conversations) for this graph"""
+        return len(getattr(self, 'threads', []))
     
     def __repr__(self) -> str:
         return f"<Graph(id={getattr(self, 'id', None)}, name='{self.name}', user_id='{self.user_id}', version={getattr(self, 'version', 1)})>" 

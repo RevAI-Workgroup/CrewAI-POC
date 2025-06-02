@@ -40,7 +40,6 @@ class User(BaseModel):
     
     # Relationships (to be defined in future tasks)
     api_keys = relationship("APIKey", back_populates="user")
-    workspaces = relationship("Workspace", back_populates="owner")
     graphs = relationship("Graph", back_populates="user")
     
     def get_full_name(self) -> str:
