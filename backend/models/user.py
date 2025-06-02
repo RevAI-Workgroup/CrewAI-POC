@@ -41,6 +41,7 @@ class User(BaseModel):
     # Relationships (to be defined in future tasks)
     api_keys = relationship("APIKey", back_populates="user")
     graphs = relationship("Graph", back_populates="user")
+    metrics = relationship("Metric", back_populates="user")
     
     def get_full_name(self) -> str:
         """Get user's full name"""

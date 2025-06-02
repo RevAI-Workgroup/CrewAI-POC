@@ -34,6 +34,7 @@ class Graph(BaseModel):
     # Relationships
     user = relationship("User", back_populates="graphs")
     threads = relationship("Thread", back_populates="graph", cascade="all, delete-orphan")
+    executions = relationship("Execution", back_populates="graph", cascade="all, delete-orphan")
     
     # Constraints
     __table_args__ = (
@@ -188,6 +189,10 @@ class Graph(BaseModel):
     def get_thread_count(self) -> int:
         """Get the number of threads for this graph"""
         return len(getattr(self, 'threads', []))
+    
+    def get_execution_count(self) -> int:
+        """Get the number of executions for this graph"""
+        return len(getattr(self, 'executions', []))
     
     def __repr__(self) -> str:
         return f"<Graph(id={getattr(self, 'id', None)}, name='{self.name}', user_id='{self.user_id}', version={getattr(self, 'version', 1)})>" 

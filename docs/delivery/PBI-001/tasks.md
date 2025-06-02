@@ -16,9 +16,9 @@ This document lists all tasks associated with PBI-001.
 | 1-6 | [API Key Storage](mdc:PBI-001-6.md) | Done | Implement API key model with encryption |
 | 1-7 | [Graph Model and CRUD](mdc:PBI-001-7.md) | Done | Create Graph model with basic CRUD operations |
 | 1-8 | [Thread Model](mdc:PBI-001-8.md) | Done | Implement Thread model |
-| 1-9 | [Message Model](mdc:PBI-001-9.md) | Proposed | Create Message model with execution linking |
-| 1-10 | [Execution Log Model](mdc:PBI-001-10.md) | Proposed | Implement execution tracking and status management |
-| 1-11 | [Metrics Model](mdc:PBI-001-11.md) | Proposed | Create model for MLFlow metrics integration |
+| 1-9 | [Message Model](mdc:PBI-001-9.md) | Done | Create model for message storage and conversation tracking |
+| 1-10 | [Execution Log Model](mdc:PBI-001-10.md) | Done | Create model for execution lifecycle and logging |
+| 1-11 | [Metrics Model](mdc:PBI-001-11.md) | Done | Create model for MLFlow metrics integration |
 | 1-12 | [Database Migrations](mdc:PBI-001-12.md) | Proposed | Setup Alembic migrations and seeding |
 | 1-13 | [Node Type Definitions](mdc:PBI-001-13.md) | Proposed | Define CrewAI node types and schemas |
 | 1-14 | [Graph Validation Service](mdc:PBI-001-14.md) | Proposed | Core graph validation logic |

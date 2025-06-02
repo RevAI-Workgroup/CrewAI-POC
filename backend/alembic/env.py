@@ -14,10 +14,9 @@ from alembic import context
 # Load environment variables
 load_dotenv()
 
-# Import our database configuration and models
+# Import our database configuration and all models
 import db_config
-from models.user import User
-from models.api_key import APIKey
+from models import *  # Import all models to ensure they're registered
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
