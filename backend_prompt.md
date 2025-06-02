@@ -22,7 +22,7 @@ This development MUST follow the AI Coding Agent Policy. All work requires:
 **Conditions of Satisfaction**:
 1. JWT + API key authentication system with user management
 2. PostgreSQL database with all required models and relationships
-3. CRUD operations for graphs, workspaces, threads, messages, and API keys
+3. CRUD operations for graphs, threads, messages, and API keys
 4. Graph validation service that ensures CrewAI compatibility
 5. CrewAI execution service with async processing and queueing
 6. SSE streaming for real-time execution updates
@@ -57,7 +57,7 @@ The PBI will be broken into minimal, testable tasks following these categories:
 
 ### Phase 2: Core Models (Tasks 1-7 through 1-12)
 7. **1-7**: Graph model and basic CRUD
-8. **1-8**: Workspace and thread models
+8. **1-8**: Thread models
 9. **1-9**: Message model with execution linking
 10. **1-10**: Execution log model and status tracking
 11. **1-11**: Metrics model for MLFlow integration
