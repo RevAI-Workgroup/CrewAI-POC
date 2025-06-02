@@ -11,6 +11,9 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Import routers
+from routers.auth import router as auth_router
+
 # Create FastAPI app
 app = FastAPI(
     title=os.getenv("APP_NAME", "CrewAI Backend"),
@@ -27,6 +30,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers
+app.include_router(auth_router)
 
 @app.get("/")
 async def root():
