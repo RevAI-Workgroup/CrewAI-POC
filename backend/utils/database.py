@@ -71,7 +71,7 @@ class CRUDBase(Generic[ModelType]):
         Get multiple records with pagination
         """
         return db.query(self.model).filter(
-            not self.model.is_deleted  # type: ignore
+            self.model.is_deleted == False  # type: ignore
         ).offset(skip).limit(limit).all()
     
     def create(self, db: Session, obj_in: dict) -> ModelType:
