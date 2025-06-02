@@ -11,7 +11,7 @@ This document lists all tasks associated with PBI-001.
 | 1-1 | [Project Structure and Environment Setup](mdc:PBI-001-1.md) | Done | Initialize backend directory structure, setup Python environment, create basic requirements.txt |
 | 1-2 | [Database Configuration](mdc:PBI-001-2.md) | Done | Setup PostgreSQL connection and SQLAlchemy configuration |
 | 1-3 | [Basic FastAPI Application](mdc:PBI-001-3.md) | Done | Create FastAPI app with health check endpoint |
-| 1-4 | [Authentication Models](mdc:PBI-001-4.md) | Proposed | Implement User model and JWT token handling |
+| 1-4 | [Authentication Models](mdc:PBI-001-4.md) | Done | Implement User model and JWT token handling |
 | 1-5 | [User Registration and Login](mdc:PBI-001-5.md) | Proposed | Create user registration and login endpoints |
 | 1-6 | [API Key Storage](mdc:PBI-001-6.md) | Proposed | Implement API key model with encryption |
 | 1-7 | [Graph Model and CRUD](mdc:PBI-001-7.md) | Proposed | Create Graph model with basic CRUD operations |
