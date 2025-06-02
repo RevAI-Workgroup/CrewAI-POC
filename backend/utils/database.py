@@ -3,19 +3,15 @@ Database utility functions for CrewAI Backend
 """
 
 import os
-from typing import Optional, Type, TypeVar, Generic, List, Callable, Any
+from typing import Optional, Type, TypeVar, Generic, List
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
 from models.base import BaseModel
+from db_config import create_tables, drop_tables, test_connection, get_database_url, engine
 
 # Type variable for generic model operations
 ModelType = TypeVar("ModelType", bound=BaseModel)
-
-def _get_database_function(func_name: str) -> Callable[..., Any]:
-    """Helper function to get database functions dynamically"""
-    import database
-    return getattr(database, func_name)
 
 class DatabaseManager:
     """
@@ -28,8 +24,7 @@ class DatabaseManager:
         Initialize database tables
         """
         try:
-            create_tables_func = _get_database_function('create_tables')
-            create_tables_func()
+            create_tables()
             return True
         except SQLAlchemyError:
             return False
@@ -40,10 +35,8 @@ class DatabaseManager:
         Reset database by dropping and recreating tables
         """
         try:
-            drop_tables_func = _get_database_function('drop_tables')
-            create_tables_func = _get_database_function('create_tables')
-            drop_tables_func()
-            create_tables_func()
+            drop_tables()
+            create_tables()
             return True
         except SQLAlchemyError:
             return False
@@ -53,8 +46,7 @@ class DatabaseManager:
         """
         Check database health
         """
-        test_connection_func = _get_database_function('test_connection')
-        return test_connection_func()
+        return test_connection()
 
 class CRUDBase(Generic[ModelType]):
     """
@@ -127,13 +119,9 @@ def get_database_info() -> dict:
     """
     Get database information and status
     """
-    get_database_url_func = _get_database_function('get_database_url')
-    test_connection_func = _get_database_function('test_connection')
-    engine = _get_database_function('engine')
-    
     return {
-        "database_url": get_database_url_func(),
+        "database_url": get_database_url(),
         "is_testing": os.getenv("TESTING", "false").lower() == "true",
-        "connection_status": test_connection_func(),
+        "connection_status": test_connection(),
         "engine_info": str(type(engine))
     } 

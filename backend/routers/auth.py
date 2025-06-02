@@ -6,13 +6,10 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel, EmailStr
 
-# Import with path handling
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from database import get_db
+from db_config import get_db
 from models.user import User, UserRole
 from schemas.auth import (
     UserCreate, UserResponse, UserLogin, TokenResponse, 

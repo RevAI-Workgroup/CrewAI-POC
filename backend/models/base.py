@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any, Dict
 from sqlalchemy import Column, Integer, DateTime, Boolean
 from sqlalchemy.ext.declarative import declared_attr
-from database import Base
+from db_config import Base
 
 class BaseModel(Base):
     """
