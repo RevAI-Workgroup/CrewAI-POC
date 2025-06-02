@@ -7,7 +7,7 @@ from typing import Optional
 from sqlalchemy import Column, String, Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from .base import BaseModel
-from ..services.encryption import encryption_service
+from services.encryption import encryption_service
 
 class APIKeyType(str, Enum):
     """Supported API key types"""

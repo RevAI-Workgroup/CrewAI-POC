@@ -15,7 +15,7 @@ This document lists all tasks associated with PBI-001.
 | 1-5 | [User Registration and Login](mdc:PBI-001-5.md) | Done | Create user registration and login endpoints |
 | 1-6 | [API Key Storage](mdc:PBI-001-6.md) | Done | Implement API key model with encryption |
 | 1-7 | [Graph Model and CRUD](mdc:PBI-001-7.md) | Done | Create Graph model with basic CRUD operations |
-| 1-8 | [Thread Model](mdc:PBI-001-8.md) | Proposed | Implement Thread model |
+| 1-8 | [Thread Model](mdc:PBI-001-8.md) | Done | Implement Thread model |
 | 1-9 | [Message Model](mdc:PBI-001-9.md) | Proposed | Create Message model with execution linking |
 | 1-10 | [Execution Log Model](mdc:PBI-001-10.md) | Proposed | Implement execution tracking and status management |
 | 1-11 | [Metrics Model](mdc:PBI-001-11.md) | Proposed | Create model for MLFlow metrics integration |
