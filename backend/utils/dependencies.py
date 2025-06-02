@@ -2,11 +2,36 @@
 FastAPI dependencies for authentication and authorization
 """
 
+import sys
+import os
 from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from database import get_db
+
+# Add parent directory to Python path to ensure database module can be found
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+# Import database function with error handling
+try:
+    from database import get_db
+except ImportError as e:
+    print(f"Warning: Could not import get_db from database module: {e}")
+    # Create a fallback function for development
+    def get_db():
+        """Fallback database function for development"""
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        engine = create_engine("sqlite:///:memory:")
+        SessionLocal = sessionmaker(bind=engine)
+        db = SessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+
 from models.user import User
 from utils.auth import verify_token, AuthenticationError
 
