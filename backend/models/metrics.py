@@ -31,6 +31,9 @@ class Metric(BaseModel):
     Supports various metric types and enables analytics and monitoring.
     """
     
+    # Override id field to use String(36) to match migration schema
+    id = Column(String(36), primary_key=True, index=True, nullable=False)
+    
     # Foreign key relationships
     execution_id = Column(String(36), ForeignKey("executions.id"), nullable=False, index=True)
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)

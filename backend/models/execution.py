@@ -31,6 +31,9 @@ class Execution(BaseModel):
     Each execution represents a single run of a crew based on a graph configuration.
     """
     
+    # Override id field to use String(36) to match migration schema
+    id = Column(String(36), primary_key=True, index=True, nullable=False)
+    
     # Foreign key relationships
     graph_id = Column(String(36), ForeignKey("graphs.id"), nullable=False, index=True)
     trigger_message_id = Column(String(36), ForeignKey("messages.id"), nullable=True, index=True)

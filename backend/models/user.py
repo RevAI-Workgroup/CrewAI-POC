@@ -18,6 +18,9 @@ class User(BaseModel):
     User model for authentication and profile management
     """
     
+    # Override id field to use String instead of Integer
+    id = Column(String(36), primary_key=True, index=True, nullable=False)
+    
     # Authentication fields
     email = Column(String(255), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)

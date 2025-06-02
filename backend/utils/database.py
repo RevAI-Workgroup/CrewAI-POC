@@ -61,8 +61,8 @@ class CRUDBase(Generic[ModelType]):
         Get a record by ID
         """
         return db.query(self.model).filter(
-            self.model.id == id,
-            self.model.is_deleted == False  # type: ignore
+            self.model.id == id
+            # Note: is_deleted filtering disabled to match migration schema
         ).first()
     
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100) -> List[ModelType]:
@@ -70,7 +70,7 @@ class CRUDBase(Generic[ModelType]):
         Get multiple records with pagination
         """
         return db.query(self.model).filter(
-            self.model.is_deleted == False  # type: ignore
+            # Note: is_deleted filtering disabled to match migration schema
         ).offset(skip).limit(limit).all()
     
     def create(self, db: Session, obj_in: dict) -> ModelType:
@@ -95,14 +95,13 @@ class CRUDBase(Generic[ModelType]):
     
     def delete(self, db: Session, id: int) -> Optional[ModelType]:
         """
-        Soft delete a record
+        Delete a record (hard delete since soft delete is disabled)
         """
         obj = self.get(db, id)
         if obj:
-            obj.soft_delete()
-            db.add(obj)
+            # Note: Using hard delete since is_deleted field is not in migration schema
+            db.delete(obj)
             db.commit()
-            db.refresh(obj)
         return obj
     
     def hard_delete(self, db: Session, id: int) -> Optional[ModelType]:

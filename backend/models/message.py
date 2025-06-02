@@ -29,6 +29,9 @@ class Message(BaseModel):
     Messages can trigger crew executions and link to execution logs.
     """
     
+    # Override id field to use String(36) to match migration schema
+    id = Column(String(36), primary_key=True, index=True, nullable=False)
+    
     # Foreign key relationships
     thread_id = Column(String(36), ForeignKey("threads.id"), nullable=False, index=True)
     execution_id = Column(String(36), ForeignKey("executions.id"), nullable=True, index=True)

@@ -22,6 +22,9 @@ class Thread(BaseModel):
     can interact with a specific graph instance.
     """
     
+    # Override id field to use String(36) to match migration schema
+    id = Column(String(36), primary_key=True, index=True, nullable=False)
+    
     # Foreign key to graph
     graph_id = Column(String(36), ForeignKey("graphs.id"), nullable=False, index=True)
     

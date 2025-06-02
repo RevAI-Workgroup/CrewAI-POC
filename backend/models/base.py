@@ -22,8 +22,8 @@ class BaseModel(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
-    # Soft delete support
-    is_deleted = Column(Boolean, default=False, nullable=False)
+    # Soft delete support - DISABLED to match migration schema
+    # is_deleted = Column(Boolean, default=False, nullable=False)
     
     @declared_attr.directive
     def __tablename__(cls) -> str:
@@ -66,8 +66,10 @@ class BaseModel(Base):
         """
         Soft delete the model by setting is_deleted to True
         """
-        self.is_deleted = True
-        self.updated_at = datetime.utcnow()
+        # DISABLED: is_deleted field not in migration schema
+        # self.is_deleted = True
+        # self.updated_at = datetime.utcnow()
+        pass
     
     def __repr__(self) -> str:
         """

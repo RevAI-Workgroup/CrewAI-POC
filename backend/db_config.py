@@ -14,12 +14,20 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Database configuration
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@localhost:5432/crewai_db")
+database_url_env = os.getenv("DATABASE_URL")
 
-# For testing, we can use SQLite in-memory database
+# For testing, we can use SQLite in-memory database, but only if no specific DATABASE_URL is provided
 TESTING = os.getenv("TESTING", "false").lower() == "true"
-if TESTING:
-    DATABASE_URL = "sqlite:///:memory:"
+if TESTING and database_url_env is None:
+    DATABASE_URL: str = "sqlite:///:memory:"
+elif database_url_env is None:
+    # Default database URL if none provided
+    DATABASE_URL = "postgresql://user:password@localhost:5432/crewai_db"
+else:
+    DATABASE_URL = database_url_env
+
+# At this point, DATABASE_URL is guaranteed to be a string
+assert DATABASE_URL is not None, "DATABASE_URL should not be None after configuration"
 
 # Create SQLAlchemy engine
 engine_kwargs = {}

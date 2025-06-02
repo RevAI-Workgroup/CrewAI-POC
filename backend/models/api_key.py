@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Optional
 from sqlalchemy import Column, String, Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
+from sqlalchemy.ext.declarative import declared_attr
 from .base import BaseModel
 from services.encryption import encryption_service
 
@@ -23,6 +24,12 @@ class APIKey(BaseModel):
     """
     Model for storing encrypted API keys for external services
     """
+    
+    # Explicit table name to match migration schema
+    __tablename__ = "api_keys"  # type: ignore
+    
+    # Override id field to use String instead of Integer (matches migration schema)
+    id = Column(String(36), primary_key=True, index=True, nullable=False)
     
     # Foreign key to user
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)

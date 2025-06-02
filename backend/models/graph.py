@@ -13,6 +13,9 @@ class Graph(BaseModel):
     Model for storing CrewAI graph definitions with nodes, edges, and metadata
     """
     
+    # Override id field to use String(36) to match migration schema
+    id = Column(String(36), primary_key=True, index=True, nullable=False)
+    
     # Basic graph information
     name = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)
