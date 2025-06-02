@@ -83,7 +83,10 @@ class CrewAIValidator:
                 severity=ValidationSeverity.ERROR,
                 code="NO_AGENTS",
                 message="CrewAI requires at least one agent",
-                suggestion="Add an agent node to the graph"
+                node_id=None,
+                edge_id=None,
+                suggestion="Add an agent node to the graph",
+                location=None
             ))
         
         if not task_nodes:
@@ -91,7 +94,10 @@ class CrewAIValidator:
                 severity=ValidationSeverity.ERROR,
                 code="NO_TASKS", 
                 message="CrewAI requires at least one task",
-                suggestion="Add a task node to the graph"
+                node_id=None,
+                edge_id=None,
+                suggestion="Add a task node to the graph",
+                location=None
             ))
         
         # Validate agent properties
@@ -132,7 +138,9 @@ class CrewAIValidator:
                     code=f"AGENT_MISSING_{field.upper()}",
                     message=f"Agent {agent.get('id')} missing required field: {field}",
                     node_id=agent.get('id'),
-                    suggestion=f"Add a {field} value to the agent"
+                    edge_id=None,
+                    suggestion=f"Add a {field} value to the agent",
+                    location=None
                 ))
         
         # Validate optional constraints
@@ -143,7 +151,9 @@ class CrewAIValidator:
                 code="AGENT_INVALID_MAX_ITER",
                 message=f"Agent {agent.get('id')} has invalid max_iter: {max_iter}",
                 node_id=agent.get('id'),
-                suggestion="Set max_iter to a positive integer"
+                edge_id=None,
+                suggestion="Set max_iter to a positive integer",
+                location=None
             ))
     
     def _validate_task_properties(self, task: Dict, issues: List[ValidationIssue]) -> None:
@@ -158,7 +168,9 @@ class CrewAIValidator:
                     code=f"TASK_MISSING_{field.upper()}",
                     message=f"Task {task.get('id')} missing required field: {field}",
                     node_id=task.get('id'),
-                    suggestion=f"Add a {field} value to the task"
+                    edge_id=None,
+                    suggestion=f"Add a {field} value to the task",
+                    location=None
                 ))
 
 
@@ -248,7 +260,10 @@ class GraphValidationService:
                 severity=ValidationSeverity.ERROR,
                 code="VALIDATION_EXCEPTION",
                 message=f"Validation failed with exception: {str(e)}",
-                suggestion="Check graph data format and try again"
+                node_id=None,
+                edge_id=None,
+                suggestion="Check graph data format and try again",
+                location=None
             ))
             result.is_valid = False
         
@@ -276,7 +291,10 @@ class GraphValidationService:
                 severity=ValidationSeverity.ERROR,
                 code="TOO_MANY_NODES",
                 message=f"Graph has {len(nodes)} nodes, maximum allowed is {self.config.max_nodes}",
-                suggestion=f"Reduce graph to {self.config.max_nodes} nodes or fewer"
+                node_id=None,
+                edge_id=None,
+                suggestion=f"Reduce graph to {self.config.max_nodes} nodes or fewer",
+                location=None
             ))
         
         # Check edge count limit
@@ -285,7 +303,10 @@ class GraphValidationService:
                 severity=ValidationSeverity.ERROR,
                 code="TOO_MANY_EDGES",
                 message=f"Graph has {len(edges)} edges, maximum allowed is {self.config.max_edges}",
-                suggestion=f"Reduce graph to {self.config.max_edges} edges or fewer"
+                node_id=None,
+                edge_id=None,
+                suggestion=f"Reduce graph to {self.config.max_edges} edges or fewer",
+                location=None
             ))
     
     def _analyze_graph_structure(self, graph_data: Dict, result: GraphValidationResult) -> None:
@@ -329,7 +350,10 @@ class GraphValidationService:
                 severity=ValidationSeverity.ERROR,
                 code="NO_ENTRY_POINT",
                 message="Graph has no entry points (nodes with no incoming edges)",
-                suggestion="Add at least one node with no incoming connections"
+                node_id=None,
+                edge_id=None,
+                suggestion="Add at least one node with no incoming connections",
+                location=None
             ))
         
         if self.config.require_exit_point and not exit_points:
@@ -337,7 +361,10 @@ class GraphValidationService:
                 severity=ValidationSeverity.ERROR,
                 code="NO_EXIT_POINT", 
                 message="Graph has no exit points (nodes with no outgoing edges)",
-                suggestion="Add at least one node with no outgoing connections"
+                node_id=None,
+                edge_id=None,
+                suggestion="Add at least one node with no outgoing connections",
+                location=None
             ))
         
         if not self.config.allow_circular_dependencies and circular_deps:
@@ -346,7 +373,10 @@ class GraphValidationService:
                     severity=ValidationSeverity.ERROR,
                     code="CIRCULAR_DEPENDENCY",
                     message=f"Circular dependency detected: {' -> '.join(cycle)}",
-                    suggestion="Remove circular references by breaking the cycle"
+                    node_id=None,
+                    edge_id=None,
+                    suggestion="Remove circular references by breaking the cycle",
+                    location=None
                 ))
         
         if isolated_nodes:
@@ -356,7 +386,9 @@ class GraphValidationService:
                     code="ISOLATED_NODE",
                     message=f"Node {node_id} is isolated (no connections)",
                     node_id=node_id,
-                    suggestion="Connect the node to the graph or remove it"
+                    edge_id=None,
+                    suggestion="Connect the node to the graph or remove it",
+                    location=None
                 ))
         
         if max_depth > self.config.max_depth:
@@ -364,7 +396,10 @@ class GraphValidationService:
                 severity=ValidationSeverity.WARNING,
                 code="EXCESSIVE_DEPTH",
                 message=f"Graph depth ({max_depth}) exceeds recommended maximum ({self.config.max_depth})",
-                suggestion="Consider flattening the graph structure"
+                node_id=None,
+                edge_id=None,
+                suggestion="Consider flattening the graph structure",
+                location=None
             ))
     
     def _validate_nodes(self, graph_data: Dict, result: GraphValidationResult) -> None:
@@ -387,7 +422,10 @@ class GraphValidationService:
                 severity=ValidationSeverity.ERROR,
                 code="MISSING_NODE_ID",
                 message="Node is missing required ID field",
-                suggestion="Add a unique ID to the node"
+                node_id=None,
+                edge_id=None,
+                suggestion="Add a unique ID to the node",
+                location=None
             ))
         
         if not node_type or node_type not in [nt.value for nt in NodeType]:
@@ -396,7 +434,9 @@ class GraphValidationService:
                 code="INVALID_NODE_TYPE",
                 message=f"Node {node_id} has invalid type: {node_type}",
                 node_id=node_id,
-                suggestion=f"Use one of: {[nt.value for nt in NodeType]}"
+                edge_id=None,
+                suggestion=f"Use one of: {[nt.value for nt in NodeType]}",
+                location=None
             ))
         
         # Type-specific validation
@@ -429,7 +469,9 @@ class GraphValidationService:
                     code=f"AGENT_MISSING_{field.upper()}",
                     message=f"Agent node missing required field: {field}",
                     node_id=node.get('id'),
-                    suggestion=f"Add {field} to the agent configuration"
+                    edge_id=None,
+                    suggestion=f"Add {field} to the agent configuration",
+                    location=None
                 ))
     
     def _validate_task_node(self, node: Dict, issues: List[ValidationIssue]) -> None:
@@ -443,7 +485,9 @@ class GraphValidationService:
                     code=f"TASK_MISSING_{field.upper()}",
                     message=f"Task node missing required field: {field}",
                     node_id=node.get('id'),
-                    suggestion=f"Add {field} to the task configuration"
+                    edge_id=None,
+                    suggestion=f"Add {field} to the task configuration",
+                    location=None
                 ))
     
     def _validate_tool_node(self, node: Dict, issues: List[ValidationIssue]) -> None:
@@ -454,7 +498,9 @@ class GraphValidationService:
                 code="TOOL_MISSING_TYPE",
                 message="Tool node missing required tool_type field",
                 node_id=node.get('id'),
-                suggestion="Specify the tool type"
+                edge_id=None,
+                suggestion="Specify the tool type",
+                location=None
             ))
     
     def _validate_flow_node(self, node: Dict, issues: List[ValidationIssue]) -> None:
@@ -465,7 +511,9 @@ class GraphValidationService:
                 code="FLOW_MISSING_TYPE",
                 message="Flow node missing required flow_type field",
                 node_id=node.get('id'),
-                suggestion="Specify the flow type (sequential, hierarchical, etc.)"
+                edge_id=None,
+                suggestion="Specify the flow type (sequential, hierarchical, etc.)",
+                location=None
             ))
     
     def _validate_edges(self, graph_data: Dict, result: GraphValidationResult) -> None:
@@ -490,8 +538,10 @@ class GraphValidationService:
                 severity=ValidationSeverity.ERROR,
                 code="EDGE_MISSING_SOURCE",
                 message=f"Edge {edge_id} missing source_id",
+                node_id=None,
                 edge_id=edge_id,
-                suggestion="Add source node ID to the edge"
+                suggestion="Add source node ID to the edge",
+                location=None
             ))
         
         if not target_id:
@@ -499,8 +549,10 @@ class GraphValidationService:
                 severity=ValidationSeverity.ERROR,
                 code="EDGE_MISSING_TARGET",
                 message=f"Edge {edge_id} missing target_id",
+                node_id=None,
                 edge_id=edge_id,
-                suggestion="Add target node ID to the edge"
+                suggestion="Add target node ID to the edge",
+                location=None
             ))
         
         # Check node existence
@@ -509,8 +561,10 @@ class GraphValidationService:
                 severity=ValidationSeverity.ERROR,
                 code="EDGE_SOURCE_NOT_FOUND",
                 message=f"Edge {edge_id} references non-existent source node: {source_id}",
+                node_id=None,
                 edge_id=edge_id,
-                suggestion="Ensure source node exists in the graph"
+                suggestion="Ensure source node exists in the graph",
+                location=None
             ))
         
         if target_id and target_id not in nodes:
@@ -518,8 +572,10 @@ class GraphValidationService:
                 severity=ValidationSeverity.ERROR,
                 code="EDGE_TARGET_NOT_FOUND",
                 message=f"Edge {edge_id} references non-existent target node: {target_id}",
+                node_id=None,
                 edge_id=edge_id,
-                suggestion="Ensure target node exists in the graph"
+                suggestion="Ensure target node exists in the graph",
+                location=None
             ))
         
         is_valid = not any(issue.severity == ValidationSeverity.ERROR for issue in issues)
