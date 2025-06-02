@@ -21,7 +21,7 @@ This document lists all tasks associated with PBI-001.
 | 1-11 | [Metrics Model](mdc:PBI-001-11.md) | Done | Create model for MLFlow metrics integration |
 | 1-12 | [Database Migrations](mdc:PBI-001-12.md) | Done | Setup Alembic migrations and seeding |
 | 1-13 | [Node Type Definitions](mdc:PBI-001-13.md) | Done | Define CrewAI node types and schemas |
-| 1-14 | [Graph Validation Service](mdc:PBI-001-14.md) | Proposed | Core graph validation logic |
+| 1-14 | [Graph Validation Service](mdc:PBI-001-14.md) | Done | Core graph validation logic |
 | 1-15 | [Graph CRUD Endpoints](mdc:PBI-001-15.md) | Proposed | REST endpoints for graph management |
 | 1-16 | [Graph Validation Endpoints](mdc:PBI-001-16.md) | Proposed | API endpoints for graph validation |
 | 1-17 | [Template Management](mdc:PBI-001-17.md) | Proposed | Admin-only template CRUD operations |
