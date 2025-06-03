@@ -1,8 +1,12 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { RootLayout, AuthLayout, AppLayout } from '../layouts/RootLayout';
 import { ProtectedRoute, PublicRoute } from '../components/ProtectedRoute';
-import { LoginPage, RegisterPage, DashboardPage, GraphsPage } from '../pages/Login';
 import { ROUTES } from './routes';
+import { RegisterPage } from '@/pages/Register';
+import { LoginPage } from '@/pages/Login';
+import { GraphsPage } from '@/pages/Graphs';
+import { DashboardPage } from '@/pages/Dashboard';
+import { GraphEditorPage } from '@/pages/GraphEditor';
 
 // Error boundary component for routes
 function RouteErrorBoundary() {
@@ -70,11 +74,10 @@ export const router = createBrowserRouter([
             path: "graphs",
             element: <GraphsPage />,
           },
-          // TODO: Add graph editor route in later tasks
-          // {
-          //   path: "graphs/:id",
-          //   element: <GraphEditorPage />,
-          // },
+          {
+            path: "graphs/:id",
+            element: <GraphEditorPage />,
+          },
         ],
       },
     ],
