@@ -14,6 +14,7 @@ class NodeType(str, Enum):
     TASK = "task"
     TOOL = "tool"
     FLOW = "flow"
+    CREW = "crew"
 
 
 class ProcessType(str, Enum):
@@ -122,6 +123,43 @@ class FlowNodeSchema(BaseNodeSchema):
     routing_rules: List[Dict[str, Any]] = Field(default_factory=list, description="Routing rules")
 
 
+# Crew Node Schema
+class CrewNodeSchema(BaseNodeSchema):
+    """Schema for CrewAI Crew nodes."""
+    type: Literal[NodeType.CREW] = NodeType.CREW
+    
+    # Crew composition
+    agent_ids: List[str] = Field(default_factory=list, description="List of agent IDs in this crew")
+    task_ids: List[str] = Field(default_factory=list, description="List of task IDs for this crew")
+    
+    # Crew configuration
+    process: ProcessType = Field(ProcessType.SEQUENTIAL, description="Crew execution process")
+    verbose: bool = Field(False, description="Enable verbose logging for crew execution")
+    memory: bool = Field(False, description="Enable crew memory")
+    cache: bool = Field(True, description="Enable crew caching")
+    
+    # Crew limits and control
+    max_rpm: Optional[int] = Field(None, gt=0, description="Rate limit for crew (requests/minute)")
+    max_execution_time: Optional[int] = Field(None, gt=0, description="Max execution time for crew (seconds)")
+    
+    # Crew outputs and callbacks
+    output_log_file: Optional[str] = Field(None, description="Path to crew execution log file")
+    full_output: bool = Field(False, description="Return full output from all tasks")
+    step_callback: Optional[str] = Field(None, description="Callback function for step completion")
+    
+    @validator('agent_ids')
+    def validate_agent_ids(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError('Crew must have at least one agent')
+        return v
+    
+    @validator('task_ids')  
+    def validate_task_ids(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError('Crew must have at least one task')
+        return v
+
+
 # Edge/Connection Schema
 class EdgeSchema(BaseModel):
     """Schema for connections between nodes."""
@@ -141,7 +179,7 @@ class GraphSchema(BaseModel):
     description: Optional[str] = Field(None, description="Graph description")
     
     # Graph components
-    nodes: List[Union[AgentNodeSchema, TaskNodeSchema, ToolNodeSchema, FlowNodeSchema]] = Field(
+    nodes: List[Union[AgentNodeSchema, TaskNodeSchema, ToolNodeSchema, FlowNodeSchema, CrewNodeSchema]] = Field(
         default_factory=list, description="Graph nodes"
     )
     edges: List[EdgeSchema] = Field(default_factory=list, description="Graph edges")
@@ -183,6 +221,7 @@ __all__ = [
     "TaskNodeSchema",
     "ToolNodeSchema", 
     "FlowNodeSchema",
+    "CrewNodeSchema",
     "EdgeSchema",
     "GraphSchema",
     "NodeValidationSchema",

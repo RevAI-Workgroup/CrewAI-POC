@@ -17,6 +17,7 @@ class NodeTypeEnum(enum.Enum):
     TASK = "task" 
     TOOL = "tool"
     FLOW = "flow"
+    CREW = "crew"
 
 
 class ProcessTypeEnum(enum.Enum):
@@ -48,7 +49,7 @@ class NodeDefinition(BaseModel):
     position_y = Column(Integer, default=0)
     
     # Metadata and configuration
-    metadata = Column(JSON, default=dict)
+    node_metadata = Column(JSON, default=dict)
     configuration = Column(JSON, default=dict)
     
     # User association
@@ -168,6 +169,38 @@ class FlowNode(BaseModel):
         return f"<FlowNode(id={self.id}, flow_type={self.flow_type})>"
 
 
+class CrewNode(BaseModel):
+    """Extended model for CrewAI Crew nodes."""
+    __tablename__ = "crew_nodes" # type: ignore
+    
+    id = Column(String, ForeignKey("node_definitions.id"), primary_key=True, index=True)
+    
+    # Crew composition (stored as JSON arrays)
+    agent_ids = Column(JSON, nullable=False, default=list)
+    task_ids = Column(JSON, nullable=False, default=list)
+    
+    # Crew configuration
+    process = Column(SQLEnum(ProcessTypeEnum), default=ProcessTypeEnum.SEQUENTIAL)
+    verbose = Column(Boolean, default=False)
+    memory = Column(Boolean, default=False)
+    cache = Column(Boolean, default=True)
+    
+    # Crew limits and control
+    max_rpm = Column(Integer)
+    max_execution_time = Column(Integer)
+    
+    # Crew outputs and callbacks
+    output_log_file = Column(String(500))
+    full_output = Column(Boolean, default=False)
+    step_callback = Column(String(255))
+    
+    # Relationship to base node
+    node = relationship("NodeDefinition", foreign_keys=[id])
+    
+    def __repr__(self):
+        return f"<CrewNode(id={self.id})>"
+
+
 class NodeConnection(BaseModel):
     """Model for connections/edges between nodes."""
     __tablename__ = "node_connections" # type: ignore
@@ -236,5 +269,6 @@ __all__ = [
     "ToolNode",
     "FlowNode", 
     "NodeConnection",
-    "NodeTemplate"
+    "NodeTemplate",
+    "CrewNode"
 ] 

@@ -8,7 +8,7 @@ from uuid import uuid4
 import re
 
 from schemas.nodes import (
-    NodeType, AgentNodeSchema, TaskNodeSchema, ToolNodeSchema, FlowNodeSchema,
+    NodeType, AgentNodeSchema, TaskNodeSchema, ToolNodeSchema, FlowNodeSchema, CrewNodeSchema,
     BaseNodeSchema, GraphSchema, NodeValidationSchema, GraphValidationSchema
 )
 
@@ -106,6 +106,28 @@ class NodeFactory:
             return FlowNodeSchema(**node_data)
         except Exception as e:
             raise NodeValidationError(f"Failed to create flow node: {str(e)}")
+    
+    @staticmethod
+    def create_crew_node(
+        name: str,
+        agent_ids: List[str],
+        task_ids: List[str],
+        **kwargs
+    ) -> CrewNodeSchema:
+        """Create a new crew node with validation."""
+        node_data = {
+            "id": kwargs.get("id", f"crew_{uuid4().hex[:8]}"),
+            "type": NodeType.CREW,
+            "name": name,
+            "agent_ids": agent_ids,
+            "task_ids": task_ids,
+            **kwargs
+        }
+        
+        try:
+            return CrewNodeSchema(**node_data)
+        except Exception as e:
+            raise NodeValidationError(f"Failed to create crew node: {str(e)}")
 
 
 class NodeValidator:
@@ -234,6 +256,57 @@ class NodeValidator:
             node_id=node.id
         )
     
+    @staticmethod
+    def validate_crew_node(node: CrewNodeSchema) -> NodeValidationSchema:
+        """Validate a crew node."""
+        errors = []
+        warnings = []
+        
+        # Agent and task validation
+        if not node.agent_ids or len(node.agent_ids) == 0:
+            errors.append("Crew must have at least one agent")
+        
+        if not node.task_ids or len(node.task_ids) == 0:
+            errors.append("Crew must have at least one task")
+        
+        # Check for duplicate IDs
+        if len(node.agent_ids) != len(set(node.agent_ids)):
+            errors.append("Duplicate agent IDs found in crew")
+            
+        if len(node.task_ids) != len(set(node.task_ids)):
+            errors.append("Duplicate task IDs found in crew")
+        
+        # Numeric validation
+        if node.max_rpm is not None and node.max_rpm <= 0:
+            errors.append("max_rpm must be positive if specified")
+            
+        if node.max_execution_time is not None and node.max_execution_time <= 0:
+            errors.append("max_execution_time must be positive if specified")
+        
+        # Output file validation
+        if node.output_log_file:
+            if not re.match(r'^[\w\-_./]+\.\w+$', node.output_log_file):
+                errors.append("output_log_file must be a valid file path with extension")
+        
+        # Callback validation
+        if node.step_callback:
+            if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', node.step_callback):
+                errors.append("step_callback must be a valid function name")
+        
+        # Warnings for large crews
+        if len(node.agent_ids) > 10:
+            warnings.append("Large number of agents may impact performance")
+            
+        if len(node.task_ids) > 20:
+            warnings.append("Large number of tasks may impact performance")
+        
+        return NodeValidationSchema(
+            is_valid=len(errors) == 0,
+            errors=errors,
+            warnings=warnings,
+            node_id=node.id
+        )
+    
     @classmethod
     def validate_node(cls, node: BaseNodeSchema) -> NodeValidationSchema:
         """Validate any node type."""
@@ -245,6 +318,8 @@ class NodeValidator:
             return cls.validate_tool_node(node)
         elif isinstance(node, FlowNodeSchema):
             return cls.validate_flow_node(node)
+        elif isinstance(node, CrewNodeSchema):
+            return cls.validate_crew_node(node)
         else:
             return NodeValidationSchema(
                 is_valid=False,
@@ -298,6 +373,19 @@ class NodeValidator:
             if hasattr(task, 'agent_id') and task.agent_id:
                 if not any(agent.id == task.agent_id for agent in agent_nodes):
                     graph_errors.append(f"Task {task.id} assigned to non-existent agent {task.agent_id}")
+        
+        # Check crew node references
+        crew_nodes = [node for node in graph.nodes if node.type == NodeType.CREW]
+        for crew in crew_nodes:
+            if hasattr(crew, 'agent_ids'):
+                for agent_id in crew.agent_ids:
+                    if not any(agent.id == agent_id for agent in agent_nodes):
+                        graph_errors.append(f"Crew {crew.id} references non-existent agent {agent_id}")
+            
+            if hasattr(crew, 'task_ids'):
+                for task_id in crew.task_ids:
+                    if not any(task.id == task_id for task in task_nodes):
+                        graph_errors.append(f"Crew {crew.id} references non-existent task {task_id}")
         
         # Graph structure warnings
         if len(agent_nodes) == 0:
@@ -384,6 +472,16 @@ class NodeTemplates:
         "expected_output": "Well-structured content that meets the specified requirements",
         "async_execution": False,
         "human_input": False
+    }
+    
+    BASIC_CREW = {
+        "name": "Basic Crew",
+        "agent_ids": [],  # To be filled with actual agent IDs
+        "task_ids": [],   # To be filled with actual task IDs
+        "process": "sequential",
+        "verbose": False,
+        "memory": False,
+        "cache": True
     }
 
 
