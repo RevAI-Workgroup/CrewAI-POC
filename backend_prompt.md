@@ -66,7 +66,7 @@ The PBI will be broken into minimal, testable tasks following these categories:
 ### Phase 3: Graph Management (Tasks 1-13 through 1-18)
 13. **1-13**: Node type definitions and schemas
 14. **1-14**: Graph validation service foundation
-15. **1-15**: Graph CRUD endpoints
+15. **1-15**: Graph CRUD endpoints and Node definition structure
 16. **1-16**: Graph validation endpoints
 17. **1-17**: Template management (admin only)
 18. **1-18**: Graph testing and node validation

@@ -266,6 +266,26 @@ class GraphAnalyzer:
                 if source_type == 'task' and target_type not in ['task', 'tool']:
                     violations.append((edge['id'], "INVALID_TASK_CONNECTION",
                                      f"Task nodes can only connect to Task or Tool nodes"))
+                
+                # Business rule: Crews can connect to Agents, Tasks, and Tools
+                if source_type == 'crew' and target_type not in ['agent', 'task', 'tool']:
+                    violations.append((edge['id'], "INVALID_CREW_CONNECTION",
+                                     f"Crew nodes can connect to Agent, Task, or Tool nodes"))
+                
+                # Business rule: Nodes can connect to Crews (for composition)
+                if target_type == 'crew' and source_type not in ['agent', 'task', 'tool', 'flow']:
+                    violations.append((edge['id'], "INVALID_TO_CREW_CONNECTION",
+                                     f"Only Agent, Task, Tool, or Flow nodes can connect to Crew nodes"))
+                
+                # Business rule: Flow nodes can connect to any other node type
+                if source_type == 'flow':
+                    # Flow nodes are flexible and can connect to any node type
+                    pass
+                
+                # Business rule: Tools should typically be target nodes
+                if source_type == 'tool' and target_type not in ['task', 'agent']:
+                    violations.append((edge['id'], "INVALID_TOOL_CONNECTION",
+                                     f"Tool nodes should primarily be connected from Task or Agent nodes"))
         
         return violations
 

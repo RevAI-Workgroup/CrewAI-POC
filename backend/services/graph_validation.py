@@ -64,7 +64,8 @@ class CrewAIValidator:
             "agents": ["role", "goal", "backstory"],
             "tasks": ["description", "expected_output"],
             "tools": ["tool_type"],
-            "flows": ["flow_type"]
+            "flows": ["flow_type"],
+            "crews": ["agent_ids", "task_ids", "process"]
         }
     
     def validate_compatibility(self, graph_data: Dict) -> CrewAICompatibility:
@@ -77,6 +78,7 @@ class CrewAIValidator:
         # Check for required components
         agent_nodes = [n for n in nodes if n.get('type') == 'agent']
         task_nodes = [n for n in nodes if n.get('type') == 'task']
+        crew_nodes = [n for n in nodes if n.get('type') == 'crew']
         
         if not agent_nodes:
             issues.append(ValidationIssue(
@@ -107,14 +109,20 @@ class CrewAIValidator:
         # Validate task properties
         for task in task_nodes:
             self._validate_task_properties(task, issues)
+            
+        # Validate crew properties
+        for crew in crew_nodes:
+            self._validate_crew_properties(crew, issues, nodes)
         
         # Check feature usage
         feature_usage['agents'] = len(agent_nodes) > 0
         feature_usage['tasks'] = len(task_nodes) > 0
         feature_usage['tools'] = any(n.get('type') == 'tool' for n in nodes)
         feature_usage['flows'] = any(n.get('type') == 'flow' for n in nodes)
+        feature_usage['crews'] = len(crew_nodes) > 0
         feature_usage['hierarchical'] = any(
-            n.get('flow_type') == 'hierarchical' for n in nodes if n.get('type') == 'flow'
+            n.get('flow_type') == 'hierarchical' or n.get('process') == 'hierarchical' 
+            for n in nodes if n.get('type') in ['flow', 'crew']
         )
         
         is_compatible = len([i for i in issues if i.severity == ValidationSeverity.ERROR]) == 0
@@ -170,6 +178,134 @@ class CrewAIValidator:
                     node_id=task.get('id'),
                     edge_id=None,
                     suggestion=f"Add a {field} value to the task",
+                    location=None
+                ))
+    
+    def _validate_crew_properties(self, crew: Dict, issues: List[ValidationIssue], all_nodes: List[Dict]) -> None:
+        """Validate individual crew properties."""
+        crew_id = crew.get('id')
+        
+        # Validate required fields
+        agent_ids = crew.get('agent_ids', [])
+        task_ids = crew.get('task_ids', [])
+        process = crew.get('process')
+        
+        if not agent_ids:
+            issues.append(ValidationIssue(
+                severity=ValidationSeverity.ERROR,
+                code="CREW_MISSING_AGENTS",
+                message=f"Crew {crew_id} must have at least one agent",
+                node_id=crew_id,
+                edge_id=None,
+                suggestion="Add agent IDs to the crew configuration",
+                location=None
+            ))
+        
+        if not task_ids:
+            issues.append(ValidationIssue(
+                severity=ValidationSeverity.ERROR,
+                code="CREW_MISSING_TASKS",
+                message=f"Crew {crew_id} must have at least one task",
+                node_id=crew_id,
+                edge_id=None,
+                suggestion="Add task IDs to the crew configuration",
+                location=None
+            ))
+        
+        if not process:
+            issues.append(ValidationIssue(
+                severity=ValidationSeverity.ERROR,
+                code="CREW_MISSING_PROCESS",
+                message=f"Crew {crew_id} must specify a process type",
+                node_id=crew_id,
+                edge_id=None,
+                suggestion="Set process to 'sequential' or 'hierarchical'",
+                location=None
+            ))
+        
+        # Create lookup for nodes by ID and type
+        node_lookup = {node['id']: node for node in all_nodes}
+        agent_nodes = {node['id']: node for node in all_nodes if node.get('type') == 'agent'}
+        task_nodes = {node['id']: node for node in all_nodes if node.get('type') == 'task'}
+        
+        # Validate agent references
+        for agent_id in agent_ids:
+            if agent_id not in node_lookup:
+                issues.append(ValidationIssue(
+                    severity=ValidationSeverity.ERROR,
+                    code="CREW_INVALID_AGENT_REF",
+                    message=f"Crew {crew_id} references non-existent agent: {agent_id}",
+                    node_id=crew_id,
+                    edge_id=None,
+                    suggestion=f"Ensure agent {agent_id} exists in the graph or remove from crew",
+                    location=None
+                ))
+            elif agent_id not in agent_nodes:
+                issues.append(ValidationIssue(
+                    severity=ValidationSeverity.ERROR,
+                    code="CREW_INVALID_AGENT_TYPE",
+                    message=f"Crew {crew_id} references node {agent_id} which is not an agent",
+                    node_id=crew_id,
+                    edge_id=None,
+                    suggestion=f"Ensure {agent_id} is an agent node or remove from crew agents",
+                    location=None
+                ))
+        
+        # Validate task references
+        for task_id in task_ids:
+            if task_id not in node_lookup:
+                issues.append(ValidationIssue(
+                    severity=ValidationSeverity.ERROR,
+                    code="CREW_INVALID_TASK_REF",
+                    message=f"Crew {crew_id} references non-existent task: {task_id}",
+                    node_id=crew_id,
+                    edge_id=None,
+                    suggestion=f"Ensure task {task_id} exists in the graph or remove from crew",
+                    location=None
+                ))
+            elif task_id not in task_nodes:
+                issues.append(ValidationIssue(
+                    severity=ValidationSeverity.ERROR,
+                    code="CREW_INVALID_TASK_TYPE",
+                    message=f"Crew {crew_id} references node {task_id} which is not a task",
+                    node_id=crew_id,
+                    edge_id=None,
+                    suggestion=f"Ensure {task_id} is a task node or remove from crew tasks",
+                    location=None
+                ))
+        
+        # Validate process type
+        valid_processes = ['sequential', 'hierarchical']
+        if process and process not in valid_processes:
+            issues.append(ValidationIssue(
+                severity=ValidationSeverity.ERROR,
+                code="CREW_INVALID_PROCESS",
+                message=f"Crew {crew_id} has invalid process type: {process}",
+                node_id=crew_id,
+                edge_id=None,
+                suggestion=f"Use one of: {valid_processes}",
+                location=None
+            ))
+        
+        # Validate hierarchical process requirements
+        if process == 'hierarchical' and len(agent_ids) > 0:
+            # In hierarchical process, there should be a manager agent
+            # This is a warning since it's not strictly required but recommended
+            manager_found = False
+            for agent_id in agent_ids:
+                agent = agent_nodes.get(agent_id, {})
+                if agent.get('allow_delegation'):
+                    manager_found = True
+                    break
+            
+            if not manager_found:
+                issues.append(ValidationIssue(
+                    severity=ValidationSeverity.WARNING,
+                    code="CREW_HIERARCHICAL_NO_MANAGER",
+                    message=f"Crew {crew_id} uses hierarchical process but no agent has delegation enabled",
+                    node_id=crew_id,
+                    edge_id=None,
+                    suggestion="Enable 'allow_delegation' for at least one agent to act as manager",
                     location=None
                 ))
 
@@ -448,6 +584,8 @@ class GraphValidationService:
             self._validate_tool_node(node, issues)
         elif node_type == NodeType.FLOW.value:
             self._validate_flow_node(node, issues)
+        elif node_type == NodeType.CREW.value:
+            self._validate_crew_node(node, issues)
         
         is_valid = not any(issue.severity == ValidationSeverity.ERROR for issue in issues)
         
@@ -513,6 +651,50 @@ class GraphValidationService:
                 node_id=node.get('id'),
                 edge_id=None,
                 suggestion="Specify the flow type (sequential, hierarchical, etc.)",
+                location=None
+            ))
+    
+    def _validate_crew_node(self, node: Dict, issues: List[ValidationIssue]) -> None:
+        """Validate crew-specific properties."""
+        required_fields = ["agent_ids", "task_ids", "process"]
+        
+        for field in required_fields:
+            value = node.get(field)
+            if field in ["agent_ids", "task_ids"]:
+                # These should be non-empty lists
+                if not value or not isinstance(value, list) or len(value) == 0:
+                    issues.append(ValidationIssue(
+                        severity=ValidationSeverity.ERROR,
+                        code=f"CREW_MISSING_{field.upper()}",
+                        message=f"Crew node missing required field: {field}",
+                        node_id=node.get('id'),
+                        edge_id=None,
+                        suggestion=f"Add at least one {field.replace('_ids', '')} to the crew",
+                        location=None
+                    ))
+            else:
+                # Regular required field
+                if not value:
+                    issues.append(ValidationIssue(
+                        severity=ValidationSeverity.ERROR,
+                        code=f"CREW_MISSING_{field.upper()}",
+                        message=f"Crew node missing required field: {field}",
+                        node_id=node.get('id'),
+                        edge_id=None,
+                        suggestion=f"Add {field} to the crew configuration",
+                        location=None
+                    ))
+        
+        # Validate process type
+        process = node.get('process')
+        if process and process not in ['sequential', 'hierarchical']:
+            issues.append(ValidationIssue(
+                severity=ValidationSeverity.ERROR,
+                code="CREW_INVALID_PROCESS",
+                message=f"Crew node has invalid process type: {process}",
+                node_id=node.get('id'),
+                edge_id=None,
+                suggestion="Use 'sequential' or 'hierarchical' for process type",
                 location=None
             ))
     
@@ -590,8 +772,8 @@ class GraphValidationService:
     
     def _count_rules_applied(self) -> int:
         """Count the number of validation rules applied."""
-        # This is a simplified count - in practice you'd track this more precisely
-        return 15  # Basic count of validation rules
+        # Updated count to include crew validation rules
+        return 20  # Basic count of validation rules including crew validation
     
     def clear_cache(self) -> None:
         """Clear validation cache."""
