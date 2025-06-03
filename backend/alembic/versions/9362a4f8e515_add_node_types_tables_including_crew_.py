@@ -1,7 +1,7 @@
 """Add node types tables including crew nodes
 
 Revision ID: 9362a4f8e515
-Revises: 57cdd0bb87d4
+Revises: 7b415b971f41
 Create Date: 2025-06-03 02:05:44.664407
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '9362a4f8e515'
-down_revision: Union[str, None] = '57cdd0bb87d4'
+down_revision: Union[str, None] = '7b415b971f41'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

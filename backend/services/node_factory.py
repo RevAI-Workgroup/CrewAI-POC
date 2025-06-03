@@ -8,7 +8,7 @@ from uuid import uuid4
 import re
 
 from schemas.nodes import (
-    NodeType, AgentNodeSchema, TaskNodeSchema, ToolNodeSchema, FlowNodeSchema, CrewNodeSchema,
+    NodeType, AgentNodeSchema, TaskNodeSchema, ToolNodeSchema, FlowNodeSchema, CrewNodeSchema, LLMNodeSchema,
     BaseNodeSchema, GraphSchema, NodeValidationSchema, GraphValidationSchema
 )
 
@@ -128,6 +128,28 @@ class NodeFactory:
             return CrewNodeSchema(**node_data)
         except Exception as e:
             raise NodeValidationError(f"Failed to create crew node: {str(e)}")
+    
+    @staticmethod
+    def create_llm_node(
+        name: str,
+        provider: str,
+        model: str,
+        **kwargs
+    ) -> LLMNodeSchema:
+        """Create a new LLM node with validation."""
+        node_data = {
+            "id": kwargs.get("id", f"llm_{uuid4().hex[:8]}"),
+            "type": NodeType.LLM,
+            "name": name,
+            "provider": provider,
+            "model": model,
+            **kwargs
+        }
+        
+        try:
+            return LLMNodeSchema(**node_data)
+        except Exception as e:
+            raise NodeValidationError(f"Failed to create LLM node: {str(e)}")
 
 
 class NodeValidator:
@@ -307,6 +329,103 @@ class NodeValidator:
             node_id=node.id
         )
     
+    @staticmethod
+    def validate_llm_node(node: LLMNodeSchema) -> NodeValidationSchema:
+        """Validate an LLM node."""
+        errors = []
+        warnings = []
+        
+        # Required field validation
+        if not node.model.strip():
+            errors.append("LLM model name cannot be empty")
+        
+        # Provider-specific validation
+        if node.provider == "openai" and not node.model.startswith(("gpt-", "o1-", "o3-")):
+            warnings.append("Model name doesn't match typical OpenAI naming convention")
+        elif node.provider == "anthropic" and not node.model.startswith("claude"):
+            warnings.append("Model name doesn't match typical Anthropic naming convention")
+        elif node.provider == "google" and not node.model.startswith(("gemini", "gemma")):
+            warnings.append("Model name doesn't match typical Google naming convention")
+        
+        # API key validation (basic checks)
+        if node.api_key:
+            if node.provider == "openai" and not node.api_key.startswith("sk-"):
+                errors.append("OpenAI API key should start with 'sk-'")
+            elif node.provider == "anthropic" and not node.api_key.startswith("sk-ant-"):
+                errors.append("Anthropic API key should start with 'sk-ant-'")
+            elif len(node.api_key) < 10:
+                errors.append("API key appears to be too short")
+        
+        # Base URL validation
+        if node.base_url and not node.base_url.startswith(('http://', 'https://')):
+            errors.append("Base URL must start with http:// or https://")
+        
+        # Parameter validation
+        if node.temperature is not None:
+            if node.temperature < 0.0 or node.temperature > 2.0:
+                errors.append("Temperature must be between 0.0 and 2.0")
+        
+        if node.max_tokens is not None and node.max_tokens <= 0:
+            errors.append("max_tokens must be positive")
+        
+        if node.top_p is not None and (node.top_p < 0.0 or node.top_p > 1.0):
+            errors.append("top_p must be between 0.0 and 1.0")
+        
+        if node.frequency_penalty is not None and (node.frequency_penalty < -2.0 or node.frequency_penalty > 2.0):
+            errors.append("frequency_penalty must be between -2.0 and 2.0")
+        
+        if node.presence_penalty is not None and (node.presence_penalty < -2.0 or node.presence_penalty > 2.0):
+            errors.append("presence_penalty must be between -2.0 and 2.0")
+        
+        # Context window validation
+        if node.context_window is not None:
+            if node.context_window <= 0:
+                errors.append("context_window must be positive")
+            elif node.context_window > 2000000:  # 2M tokens, very large
+                warnings.append("Context window is extremely large, may impact performance")
+        
+        # Rate limiting validation
+        if node.max_rpm is not None and node.max_rpm <= 0:
+            errors.append("max_rpm must be positive")
+        
+        # Timeout validation
+        if node.timeout is not None:
+            if node.timeout <= 0:
+                errors.append("timeout must be positive")
+            elif node.timeout > 600:  # 10 minutes
+                warnings.append("Timeout is very long, may cause poor user experience")
+        
+        # Retry validation
+        if node.max_retries is not None:
+            if node.max_retries < 0:
+                errors.append("max_retries cannot be negative")
+            elif node.max_retries > 10:
+                warnings.append("High retry count may cause excessive delays")
+        
+        # Provider-specific warnings
+        if node.provider == "ollama" and not node.base_url:
+            warnings.append("Ollama typically requires a custom base_url (e.g., http://localhost:11434)")
+        
+        if node.provider == "azure" and not node.azure_deployment:
+            warnings.append("Azure provider typically requires azure_deployment parameter")
+        
+        if node.provider == "google" and not node.vertex_credentials and not node.api_key:
+            warnings.append("Google provider requires either vertex_credentials or api_key")
+        
+        # Cost validation
+        if node.cost_per_input_token is not None and node.cost_per_input_token < 0:
+            errors.append("cost_per_input_token cannot be negative")
+        
+        if node.cost_per_output_token is not None and node.cost_per_output_token < 0:
+            errors.append("cost_per_output_token cannot be negative")
+        
+        return NodeValidationSchema(
+            is_valid=len(errors) == 0,
+            errors=errors,
+            warnings=warnings,
+            node_id=node.id
+        )
+    
     @classmethod
     def validate_node(cls, node: BaseNodeSchema) -> NodeValidationSchema:
         """Validate any node type."""
@@ -320,6 +439,8 @@ class NodeValidator:
             return cls.validate_flow_node(node)
         elif isinstance(node, CrewNodeSchema):
             return cls.validate_crew_node(node)
+        elif isinstance(node, LLMNodeSchema):
+            return cls.validate_llm_node(node)
         else:
             return NodeValidationSchema(
                 is_valid=False,
@@ -373,6 +494,13 @@ class NodeValidator:
             if hasattr(task, 'agent_id') and task.agent_id:
                 if not any(agent.id == task.agent_id for agent in agent_nodes):
                     graph_errors.append(f"Task {task.id} assigned to non-existent agent {task.agent_id}")
+        
+        # Check LLM references in agents
+        llm_nodes = [node for node in graph.nodes if node.type == NodeType.LLM]
+        for agent in agent_nodes:
+            if hasattr(agent, 'llm') and agent.llm:
+                if not any(llm.id == agent.llm for llm in llm_nodes):
+                    graph_errors.append(f"Agent {agent.id} references non-existent LLM {agent.llm}")
         
         # Check crew node references
         crew_nodes = [node for node in graph.nodes if node.type == NodeType.CREW]
@@ -482,6 +610,51 @@ class NodeTemplates:
         "verbose": False,
         "memory": False,
         "cache": True
+    }
+    
+    # LLM Templates
+    GPT4_LLM = {
+        "name": "GPT-4 Turbo",
+        "provider": "openai",
+        "model": "gpt-4-turbo-preview",
+        "temperature": 0.7,
+        "max_tokens": 4000,
+        "supports_streaming": True,
+        "supports_function_calling": True,
+        "context_window": 128000
+    }
+    
+    CLAUDE_LLM = {
+        "name": "Claude 3.5 Sonnet",
+        "provider": "anthropic",
+        "model": "claude-3-5-sonnet-20241022",
+        "temperature": 0.7,
+        "max_tokens": 4000,
+        "supports_streaming": True,
+        "supports_vision": True,
+        "context_window": 200000
+    }
+    
+    GEMINI_LLM = {
+        "name": "Gemini Pro",
+        "provider": "google",
+        "model": "gemini-pro",
+        "temperature": 0.7,
+        "max_tokens": 4000,
+        "supports_streaming": True,
+        "supports_vision": True,
+        "context_window": 1000000
+    }
+    
+    OLLAMA_LLM = {
+        "name": "Local Llama",
+        "provider": "ollama",
+        "model": "llama3.2:latest",
+        "base_url": "http://localhost:11434",
+        "temperature": 0.7,
+        "max_tokens": 4000,
+        "supports_streaming": True,
+        "context_window": 8192
     }
 
 

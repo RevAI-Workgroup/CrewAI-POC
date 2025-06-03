@@ -18,6 +18,7 @@ class NodeTypeEnum(enum.Enum):
     TOOL = "tool"
     FLOW = "flow"
     CREW = "crew"
+    LLM = "llm"
 
 
 class ProcessTypeEnum(enum.Enum):
@@ -32,6 +33,25 @@ class OutputFormatEnum(enum.Enum):
     JSON = "json"
     PYDANTIC = "pydantic"
     FILE = "file"
+
+
+class LLMProviderEnum(enum.Enum):
+    """LLM provider enumeration for database."""
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+    GOOGLE = "google"
+    AZURE = "azure"
+    AWS_BEDROCK = "aws_bedrock"
+    OLLAMA = "ollama"
+    GROQ = "groq"
+    HUGGINGFACE = "huggingface"
+    MISTRAL = "mistral"
+    NVIDIA_NIM = "nvidia_nim"
+    FIREWORKS = "fireworks"
+    PERPLEXITY = "perplexity"
+    SAMBANOVA = "sambanova"
+    CEREBRAS = "cerebras"
+    OPENROUTER = "openrouter"
 
 
 class NodeDefinition(BaseModel):
@@ -201,6 +221,66 @@ class CrewNode(BaseModel):
         return f"<CrewNode(id={self.id})>"
 
 
+class LLMNode(BaseModel):
+    """Extended model for LLM (Language Model) nodes."""
+    __tablename__ = "llm_nodes" # type: ignore
+    
+    id = Column(String, ForeignKey("node_definitions.id"), primary_key=True, index=True)
+    
+    # Core LLM configuration
+    provider = Column(SQLEnum(LLMProviderEnum), nullable=False)
+    model = Column(String(255), nullable=False)
+    
+    # Authentication and API settings (stored securely/encrypted in production)
+    api_key = Column(String(500))  # Consider encryption for production
+    base_url = Column(String(500))
+    api_version = Column(String(50))
+    organization = Column(String(255))
+    
+    # Model parameters
+    temperature = Column(Integer)  # Stored as int (multiply by 100 to preserve precision)
+    max_tokens = Column(Integer)
+    top_p = Column(Integer)  # Stored as int (multiply by 100 to preserve precision)
+    frequency_penalty = Column(Integer)  # Stored as int (multiply by 100 to preserve precision)
+    presence_penalty = Column(Integer)  # Stored as int (multiply by 100 to preserve precision)
+    
+    # Advanced configuration
+    timeout = Column(Integer)
+    max_retries = Column(Integer, default=3)
+    streaming = Column(Boolean, default=False)
+    response_format = Column(JSON)
+    
+    # Context and limits
+    context_window = Column(Integer)
+    max_rpm = Column(Integer)
+    
+    # Stop sequences and control (stored as JSON arrays)
+    stop_sequences = Column(JSON, default=list)
+    seed = Column(Integer)
+    
+    # Provider-specific configurations
+    vertex_credentials = Column(Text)  # For large JSON credentials
+    aws_region = Column(String(50))
+    azure_deployment = Column(String(255))
+    
+    # Model capabilities and features
+    supports_streaming = Column(Boolean, default=True)
+    supports_function_calling = Column(Boolean, default=False)
+    supports_vision = Column(Boolean, default=False)
+    supports_json_mode = Column(Boolean, default=False)
+    
+    # Cost and performance metadata
+    cost_per_input_token = Column(Integer)  # Stored as int (multiply by 1000000 for precision)
+    cost_per_output_token = Column(Integer)  # Stored as int (multiply by 1000000 for precision)
+    estimated_latency_ms = Column(Integer)
+    
+    # Relationship to base node
+    node = relationship("NodeDefinition", foreign_keys=[id])
+    
+    def __repr__(self):
+        return f"<LLMNode(id={self.id}, provider={self.provider}, model={self.model})>"
+
+
 class NodeConnection(BaseModel):
     """Model for connections/edges between nodes."""
     __tablename__ = "node_connections" # type: ignore
@@ -263,12 +343,14 @@ __all__ = [
     "NodeTypeEnum",
     "ProcessTypeEnum", 
     "OutputFormatEnum",
+    "LLMProviderEnum",
     "NodeDefinition",
     "AgentNode",
     "TaskNode",
     "ToolNode",
     "FlowNode", 
+    "CrewNode",
+    "LLMNode",
     "NodeConnection",
-    "NodeTemplate",
-    "CrewNode"
+    "NodeTemplate"
 ] 

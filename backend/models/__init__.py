@@ -11,14 +11,14 @@ from .message import Message, MessageType, MessageStatus
 from .execution import Execution, ExecutionStatus, ExecutionPriority
 from .metrics import Metric, MetricType, MetricCategory
 from .node_types import (
-    NodeDefinition, AgentNode, TaskNode, ToolNode, FlowNode, CrewNode,
-    NodeConnection, NodeTemplate, NodeTypeEnum, ProcessTypeEnum, OutputFormatEnum
+    NodeDefinition, AgentNode, TaskNode, ToolNode, FlowNode, CrewNode, LLMNode,
+    NodeConnection, NodeTemplate, NodeTypeEnum, ProcessTypeEnum, OutputFormatEnum, LLMProviderEnum
 )
 
 __all__ = [
     "BaseModel", "User", "UserRole", "APIKey", "APIKeyType", "Graph", 
     "Thread", "ThreadStatus", "Message", "MessageType", "MessageStatus", 
     "Execution", "ExecutionStatus", "ExecutionPriority", "Metric", "MetricType", "MetricCategory",
-    "NodeDefinition", "AgentNode", "TaskNode", "ToolNode", "FlowNode", "CrewNode",
-    "NodeConnection", "NodeTemplate", "NodeTypeEnum", "ProcessTypeEnum", "OutputFormatEnum"
+    "NodeDefinition", "AgentNode", "TaskNode", "ToolNode", "FlowNode", "CrewNode", "LLMNode",
+    "NodeConnection", "NodeTemplate", "NodeTypeEnum", "ProcessTypeEnum", "OutputFormatEnum", "LLMProviderEnum"
 ] 

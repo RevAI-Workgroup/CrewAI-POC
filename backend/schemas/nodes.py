@@ -15,6 +15,7 @@ class NodeType(str, Enum):
     TOOL = "tool"
     FLOW = "flow"
     CREW = "crew"
+    LLM = "llm"
 
 
 class ProcessType(str, Enum):
@@ -29,6 +30,25 @@ class OutputFormat(str, Enum):
     JSON = "json"
     PYDANTIC = "pydantic"
     FILE = "file"
+
+
+class LLMProvider(str, Enum):
+    """Supported LLM providers."""
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+    GOOGLE = "google"
+    AZURE = "azure"
+    AWS_BEDROCK = "aws_bedrock"
+    OLLAMA = "ollama"
+    GROQ = "groq"
+    HUGGINGFACE = "huggingface"
+    MISTRAL = "mistral"
+    NVIDIA_NIM = "nvidia_nim"
+    FIREWORKS = "fireworks"
+    PERPLEXITY = "perplexity"
+    SAMBANOVA = "sambanova"
+    CEREBRAS = "cerebras"
+    OPENROUTER = "openrouter"
 
 
 # Base Node Schema
@@ -160,6 +180,77 @@ class CrewNodeSchema(BaseNodeSchema):
         return v
 
 
+# LLM Node Schema
+class LLMNodeSchema(BaseNodeSchema):
+    """Schema for LLM (Language Model) nodes."""
+    type: Literal[NodeType.LLM] = NodeType.LLM
+    
+    # Core LLM configuration
+    provider: LLMProvider = Field(..., description="LLM provider (OpenAI, Anthropic, etc.)")
+    model: str = Field(..., description="Model name/identifier")
+    
+    # Authentication and API settings
+    api_key: Optional[str] = Field(None, description="API key for authentication")
+    base_url: Optional[str] = Field(None, description="Custom base URL for API endpoint")
+    api_version: Optional[str] = Field(None, description="API version (for Azure/other providers)")
+    organization: Optional[str] = Field(None, description="Organization ID (for OpenAI)")
+    
+    # Model parameters
+    temperature: Optional[float] = Field(0.7, ge=0.0, le=2.0, description="Sampling temperature (0.0-2.0)")
+    max_tokens: Optional[int] = Field(None, gt=0, description="Maximum tokens to generate")
+    top_p: Optional[float] = Field(1.0, ge=0.0, le=1.0, description="Nucleus sampling parameter")
+    frequency_penalty: Optional[float] = Field(0.0, ge=-2.0, le=2.0, description="Frequency penalty (-2.0 to 2.0)")
+    presence_penalty: Optional[float] = Field(0.0, ge=-2.0, le=2.0, description="Presence penalty (-2.0 to 2.0)")
+    
+    # Advanced configuration
+    timeout: Optional[int] = Field(None, gt=0, description="Request timeout in seconds")
+    max_retries: Optional[int] = Field(3, ge=0, description="Maximum number of retries")
+    streaming: bool = Field(False, description="Enable streaming responses")
+    response_format: Optional[Dict[str, Any]] = Field(None, description="Response format specification")
+    
+    # Context and limits
+    context_window: Optional[int] = Field(None, gt=0, description="Model context window size")
+    max_rpm: Optional[int] = Field(None, gt=0, description="Rate limit (requests per minute)")
+    
+    # Stop sequences and control
+    stop_sequences: List[str] = Field(default_factory=list, description="Stop sequences for generation")
+    seed: Optional[int] = Field(None, description="Random seed for reproducibility")
+    
+    # Provider-specific configurations
+    vertex_credentials: Optional[str] = Field(None, description="Google Vertex AI credentials JSON")
+    aws_region: Optional[str] = Field(None, description="AWS region for Bedrock")
+    azure_deployment: Optional[str] = Field(None, description="Azure deployment name")
+    
+    # Model capabilities and features
+    supports_streaming: bool = Field(True, description="Whether the model supports streaming")
+    supports_function_calling: bool = Field(False, description="Whether the model supports function calling")
+    supports_vision: bool = Field(False, description="Whether the model supports vision/image inputs")
+    supports_json_mode: bool = Field(False, description="Whether the model supports JSON mode")
+    
+    # Cost and performance metadata
+    cost_per_input_token: Optional[float] = Field(None, ge=0, description="Cost per input token (USD)")
+    cost_per_output_token: Optional[float] = Field(None, ge=0, description="Cost per output token (USD)")
+    estimated_latency_ms: Optional[int] = Field(None, gt=0, description="Estimated response latency (ms)")
+    
+    @validator('model')
+    def validate_model(cls, v):
+        if not v or not v.strip():
+            raise ValueError('Model name cannot be empty')
+        return v.strip()
+    
+    @validator('api_key')
+    def validate_api_key(cls, v):
+        if v and len(v.strip()) < 10:
+            raise ValueError('API key appears to be too short')
+        return v.strip() if v else None
+    
+    @validator('base_url')
+    def validate_base_url(cls, v):
+        if v and not v.strip().startswith(('http://', 'https://')):
+            raise ValueError('Base URL must start with http:// or https://')
+        return v.strip() if v else None
+
+
 # Edge/Connection Schema
 class EdgeSchema(BaseModel):
     """Schema for connections between nodes."""
@@ -179,7 +270,7 @@ class GraphSchema(BaseModel):
     description: Optional[str] = Field(None, description="Graph description")
     
     # Graph components
-    nodes: List[Union[AgentNodeSchema, TaskNodeSchema, ToolNodeSchema, FlowNodeSchema, CrewNodeSchema]] = Field(
+    nodes: List[Union[AgentNodeSchema, TaskNodeSchema, ToolNodeSchema, FlowNodeSchema, CrewNodeSchema, LLMNodeSchema]] = Field(
         default_factory=list, description="Graph nodes"
     )
     edges: List[EdgeSchema] = Field(default_factory=list, description="Graph edges")
@@ -216,12 +307,14 @@ __all__ = [
     "NodeType",
     "ProcessType", 
     "OutputFormat",
+    "LLMProvider",
     "BaseNodeSchema",
     "AgentNodeSchema",
     "TaskNodeSchema",
     "ToolNodeSchema", 
     "FlowNodeSchema",
     "CrewNodeSchema",
+    "LLMNodeSchema",
     "EdgeSchema",
     "GraphSchema",
     "NodeValidationSchema",
