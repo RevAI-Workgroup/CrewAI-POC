@@ -1,12 +1,10 @@
 // Route constants for type-safe navigation
 export const ROUTES = {
-  HOME: '/',
-  LOGIN: '/login',
-  REGISTER: '/register',
-  DASHBOARD: '/dashboard',
-  GRAPHS: '/graphs',
-  GRAPH_EDITOR: '/graphs/:id/edit',
-  GRAPH_NEW: '/graphs/new',
+    DASHBOARD: '/',
+    LOGIN: '/auth/login',
+    REGISTER: '/auth/register',
+    GRAPHS: '/graphs', // graphs creation will be from this page and result in redirect to editor page
+    GRAPH_EDITOR: '/graphs/:id',
 } as const;
 
 // Type for route paths
