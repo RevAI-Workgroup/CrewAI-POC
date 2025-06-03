@@ -4,6 +4,10 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { resolve } from 'path'
 
+import { loadEnv } from 'vite';
+
+const env = loadEnv(process.env.NODE_ENV as string, process.cwd(), 'VITE_');
+
 // https://vite.dev/config/
 export default defineConfig({ 
   resolve: {
@@ -45,8 +49,20 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: env.VITE_API_BASE_URL,
         changeOrigin: true,
+        secure: false,
+        configure: (proxy, options) => {
+          proxy.on('error', (err, req, res) => {
+            console.log('Proxy error:', err);
+          });
+          proxy.on('proxyReq', (proxyReq, req, res) => {
+            console.log('Proxying request:', req.method, req.url);
+          });
+          proxy.on('proxyRes', (proxyRes, req, res) => {
+            console.log('Proxy response:', proxyRes.statusCode, req.url);
+          });
+        },
       },
       '/ws': {
         target: 'ws://localhost:8000',

@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import axios from 'axios';
-import { env } from '../config/env';
 import type {
   LoginRequest,
   LoginResponse,
@@ -41,9 +40,6 @@ interface AuthStoreState {
   setUser: (user: User) => void;
 }
 
-// Get API base URL from centralized environment configuration
-const API_BASE_URL = env.API_BASE_URL;
-
 const useAuthStore = create<AuthStoreState>()(
   subscribeWithSelector((set, get) => ({
     // Initial state
@@ -61,7 +57,7 @@ const useAuthStore = create<AuthStoreState>()(
       try {
         const requestData: RegisterRequest = { pseudo };
         const response = await axios.post<RegisterResponse>(
-          `${API_BASE_URL}/api/auth/register`,
+          '/api/auth/register',
           requestData
         );
 
@@ -115,7 +111,7 @@ const useAuthStore = create<AuthStoreState>()(
       try {
         const requestData: LoginRequest = { passphrase };
         const response = await axios.post<LoginResponse>(
-          `${API_BASE_URL}/api/auth/login`,
+          '/api/auth/login',
           requestData
         );
 
@@ -170,7 +166,7 @@ const useAuthStore = create<AuthStoreState>()(
         };
         
         const response = await axios.post<LoginResponse>(
-          `${API_BASE_URL}/api/auth/refresh`,
+          '/api/auth/refresh',
           requestData
         );
 

@@ -14,7 +14,7 @@ This document lists all tasks associated with PBI-002.
 | 2-4 | [Project Structure and Configuration](mdc:PBI-002-4.md) | Done | Organize project directories and TypeScript configuration |
 | 2-5 | [Development Tooling Setup](mdc:PBI-002-5.md) | Done | Configure ESLint, Prettier, Husky for code quality |
 | 2-6 | [Environment Configuration](mdc:PBI-002-6.md) | Done | Setup environment variables and build configuration |
-| 2-7 | [Authentication Store with Zustand](mdc:PBI-002-7.md) | Review | Create Zustand store for pseudo/passphrase authentication |
+| 2-7 | [Authentication Store with Zustand](mdc:PBI-002-7.md) | Done | Create Zustand store for pseudo/passphrase authentication |
 | 2-8 | [Registration Form Component](mdc:PBI-002-8.md) | Proposed | Build registration form with pseudo input and passphrase display |
 | 2-9 | [Login Form Component](mdc:PBI-002-9.md) | Proposed | Create login form with passphrase-only authentication |
 | 2-10 | [JWT Token Management](mdc:PBI-002-10.md) | Proposed | Implement JWT token storage and auto-refresh functionality |
