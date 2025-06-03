@@ -34,10 +34,8 @@ async def get_current_user(
     # Simple query without complex filters
     user = db.query(User).filter(User.id == user_id).first()
     
-    # Check user conditions after fetching
-    if (user is None or 
-        not getattr(user, 'is_active', False) or 
-        getattr(user, 'is_deleted', True)):
+    # Check user exists
+    if user is None:
         raise AuthenticationError("User not found or inactive")
     
     return user
@@ -46,7 +44,7 @@ async def get_current_active_user(
     current_user: User = Depends(get_current_user)
 ) -> User:
     """
-    Get current active user (additional check for is_active)
+    Get current user (alias for get_current_user since is_active field removed)
     """
     return current_user
 

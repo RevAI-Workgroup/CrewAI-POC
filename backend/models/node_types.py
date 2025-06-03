@@ -79,7 +79,7 @@ class NodeDefinition(BaseModel):
     graph_id = Column(String, ForeignKey("graphs.id"))
     
     # Relationships
-    graph = relationship("Graph", back_populates="nodes")
+    graph = relationship("Graph")
     
     def __repr__(self):
         return f"<NodeDefinition(id={self.id}, type={self.type}, name={self.name})>"
@@ -303,7 +303,7 @@ class NodeConnection(BaseModel):
     # Relationships
     source_node = relationship("NodeDefinition", foreign_keys=[source_id])
     target_node = relationship("NodeDefinition", foreign_keys=[target_id])
-    graph = relationship("Graph", back_populates="connections")
+    graph = relationship("Graph")
     
     def __repr__(self):
         return f"<NodeConnection(id={self.id}, {self.source_id} -> {self.target_id})>"

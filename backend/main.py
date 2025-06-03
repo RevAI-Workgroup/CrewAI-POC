@@ -6,6 +6,7 @@ Main FastAPI application entry point
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from scalar_fastapi import get_scalar_api_reference
 import os
 import sys
 from dotenv import load_dotenv
@@ -18,6 +19,7 @@ from startup import startup_database_check
 
 # Import routers
 from routers.auth import router as auth_router
+from routers.graphs import router as graphs_router
 
 
 @asynccontextmanager
@@ -65,11 +67,19 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth_router)
+app.include_router(graphs_router)
 
 @app.get("/")
 async def root():
     """Root endpoint"""
     return {"message": "CrewAI Backend API is running"}
+
+@app.get("/doc", include_in_schema=False)
+async def scalar_html():
+    return get_scalar_api_reference(
+        openapi_url=app.openapi_url or "/openapi.json",
+        title=app.title,
+    )
 
 @app.get("/health")
 async def health_check():

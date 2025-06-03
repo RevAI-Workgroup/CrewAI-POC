@@ -1,10 +1,10 @@
 """
-Authentication-related Pydantic schemas
+Authentication-related Pydantic schemas for pseudo/passphrase system
 """
 
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict
 from enum import Enum
 
 class UserRole(str, Enum):
@@ -14,28 +14,33 @@ class UserRole(str, Enum):
 
 class UserBase(BaseModel):
     """Base user schema with common fields"""
-    email: EmailStr
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    is_active: bool = True
-    is_verified: bool = False
+    pseudo: str = Field(..., min_length=1, max_length=100, description="Display name (non-unique)")
     role: UserRole = UserRole.USER
 
-class UserCreate(UserBase):
-    """Schema for user creation"""
-    password: str = Field(..., min_length=8, description="Password must be at least 8 characters")
+class UserCreate(BaseModel):
+    """Schema for user creation - only needs pseudo"""
+    pseudo: str = Field(..., min_length=1, max_length=100, description="Display name (non-unique)")
+
+class UserCreateResponse(UserBase):
+    """Schema for user creation response - includes generated passphrase and JWT tokens"""
+    id: str
+    passphrase: str = Field(..., description="Generated unique passphrase for authentication")
+    created_at: datetime
+    updated_at: datetime
+    access_token: str = Field(..., description="JWT access token for immediate login")
+    refresh_token: str = Field(..., description="JWT refresh token for session management")
+    token_type: str = "bearer"
+    expires_in: int = Field(..., description="Access token expiration time in seconds")
+    
+    model_config = ConfigDict(from_attributes=True)
 
 class UserUpdate(BaseModel):
     """Schema for user updates"""
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    is_active: Optional[bool] = None
-    is_verified: Optional[bool] = None
     role: Optional[UserRole] = None
 
 class UserResponse(UserBase):
     """Schema for user response (public fields)"""
-    id: int
+    id: str
     created_at: datetime
     updated_at: datetime
     last_login: Optional[datetime] = None
@@ -43,9 +48,8 @@ class UserResponse(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
 class UserLogin(BaseModel):
-    """Schema for user login"""
-    email: EmailStr
-    password: str
+    """Schema for user login - passphrase only"""
+    passphrase: str = Field(..., description="Unique passphrase for authentication")
 
 class TokenResponse(BaseModel):
     """Schema for token response"""
@@ -57,18 +61,4 @@ class TokenResponse(BaseModel):
 
 class TokenRefresh(BaseModel):
     """Schema for token refresh"""
-    refresh_token: str
-
-class PasswordReset(BaseModel):
-    """Schema for password reset request"""
-    email: EmailStr
-
-class PasswordResetConfirm(BaseModel):
-    """Schema for password reset confirmation"""
-    token: str
-    new_password: str = Field(..., min_length=8, description="Password must be at least 8 characters")
-
-class PasswordChange(BaseModel):
-    """Schema for password change"""
-    current_password: str
-    new_password: str = Field(..., min_length=8, description="Password must be at least 8 characters") 
+    refresh_token: str 

@@ -1,17 +1,13 @@
 """
-Authentication utilities for password hashing and JWT token management
+Authentication utilities for passphrase generation and JWT token management
 """
 
 import os
+import random
 from datetime import datetime, timedelta
 from typing import Optional, Union
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from fastapi import HTTPException, status
-import secrets
-
-# Password hashing configuration
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
@@ -19,17 +15,27 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """
-    Verify a plain password against its hash
-    """
-    return pwd_context.verify(plain_password, hashed_password)
+# Word lists for passphrase generation
+WORD_LIST = [
+    "apple", "banana", "cherry", "dragon", "elephant", "forest", "garden", "harbor",
+    "island", "jungle", "kitten", "laptop", "mountain", "notebook", "ocean", "piano",
+    "quartz", "rabbit", "sunset", "thunder", "umbrella", "violet", "whisper", "xylophone",
+    "yellow", "zephyr", "anchor", "bridge", "castle", "dream", "eagle", "flame",
+    "glacier", "harmony", "indigo", "jasper", "kaleidoscope", "lighthouse", "meadow", "nebula",
+    "opal", "phoenix", "quantum", "river", "starlight", "tornado", "universe", "voyage",
+    "waterfall", "xenon", "yearning", "zodiac", "backstage", "epileptic", "wimp", "petunia",
+    "outpost", "undergrad", "crystal", "meadow", "journey", "horizon", "cascade", "twilight",
+    "breeze", "compass", "destiny", "echoes", "frontier", "guardian", "horizon", "illusion",
+    "labyrinth", "mirage", "odyssey", "prism", "sanctuary", "tempest", "vision", "wanderer"
+]
 
-def get_password_hash(password: str) -> str:
+def generate_passphrase() -> str:
     """
-    Generate password hash from plain password
+    Generate a unique passphrase in format: word-word-word-word-word-word
+    Returns 6 random words separated by hyphens
     """
-    return pwd_context.hash(password)
+    words = random.sample(WORD_LIST, 6)
+    return "-".join(words)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """
@@ -74,18 +80,6 @@ def verify_token(token: str, token_type: str = "access") -> Optional[dict]:
         return payload
     except JWTError:
         return None
-
-def generate_reset_token() -> str:
-    """
-    Generate secure random token for password reset
-    """
-    return secrets.token_urlsafe(32)
-
-def verify_reset_token_expiry(expires_at: datetime) -> bool:
-    """
-    Check if reset token is still valid
-    """
-    return datetime.utcnow() < expires_at
 
 class AuthenticationError(HTTPException):
     """Custom authentication error"""

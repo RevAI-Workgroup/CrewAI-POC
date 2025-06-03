@@ -9,13 +9,13 @@ import hashlib
 import json
 from datetime import datetime, timedelta
 
-from backend.schemas.nodes import GraphSchema, NodeType
-from backend.schemas.validation import (
+from schemas.nodes import GraphSchema, NodeType
+from schemas.validation import (
     ValidationSeverity, ValidationIssue, NodeValidationResult,
     EdgeValidationResult, GraphStructureAnalysis, CrewAICompatibility,
     ValidationMetrics, GraphValidationResult, ValidationRuleConfig
 )
-from backend.utils.graph_algorithms import GraphAnalyzer, performance_monitor
+from utils.graph_algorithms import GraphAnalyzer, performance_monitor
 
 
 class ValidationCache:
