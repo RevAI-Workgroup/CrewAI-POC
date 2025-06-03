@@ -60,7 +60,7 @@ async def list_graphs(
     """
     try:
         graphs = db.query(Graph).filter(
-            Graph.created_by == current_user.id
+            Graph.user_id == current_user.id
         ).offset(skip).limit(limit).all()
         
         return {
@@ -95,7 +95,7 @@ async def get_graph(
     try:
         graph = db.query(Graph).filter(
             Graph.id == graph_id,
-            Graph.created_by == current_user.id
+            Graph.user_id == current_user.id
         ).first()
         
         if not graph:
@@ -140,9 +140,8 @@ async def create_graph(
             name=graph_data.get("name", "Untitled Graph"),
             description=graph_data.get("description"),
             graph_data=graph_data.get("graph_data", {}),
-            metadata=graph_data.get("metadata", {}),
             is_template=graph_data.get("is_template", False),
-            created_by=current_user.id
+            user_id=current_user.id
         )
         
         db.add(new_graph)
@@ -185,7 +184,7 @@ async def update_graph(
         # Find existing graph
         graph = db.query(Graph).filter(
             Graph.id == graph_id,
-            Graph.created_by == current_user.id
+            Graph.user_id == current_user.id
         ).first()
         
         if not graph:
@@ -201,8 +200,6 @@ async def update_graph(
             graph.description = graph_data["description"]
         if "graph_data" in graph_data:
             graph.graph_data = graph_data["graph_data"]
-        if "metadata" in graph_data:
-            graph.metadata = graph_data["metadata"]
         if "is_template" in graph_data:
             graph.is_template = graph_data["is_template"]
             
@@ -245,7 +242,7 @@ async def delete_graph(
         # Find existing graph
         graph = db.query(Graph).filter(
             Graph.id == graph_id,
-            Graph.created_by == current_user.id
+            Graph.user_id == current_user.id
         ).first()
         
         if not graph:
