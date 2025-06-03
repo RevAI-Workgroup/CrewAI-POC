@@ -21,4 +21,4 @@ export interface RouteConfig {
   title: string;
   requiresAuth: boolean;
   element?: React.ComponentType;
-} 
+}

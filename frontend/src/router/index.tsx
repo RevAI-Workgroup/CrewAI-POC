@@ -14,7 +14,7 @@ function RouteErrorBoundary() {
           Something went wrong with this page.
         </p>
         <button 
-          onClick={() => window.location.href = ROUTES.HOME}
+          onClick={() => window.location.href = ROUTES.DASHBOARD}
           className="px-4 py-2 bg-primary text-primary-foreground rounded-md"
         >
           Go Home
@@ -24,36 +24,19 @@ function RouteErrorBoundary() {
   );
 }
 
-// Home page component (redirects to appropriate page)
-function HomePage() {
-  // TODO: Replace with actual auth check
-  const isAuthenticated = false;
-  
-  if (isAuthenticated) {
-    window.location.href = ROUTES.DASHBOARD;
-  } else {
-    window.location.href = ROUTES.LOGIN;
-  }
-  
-  return null;
-}
-
 export const router = createBrowserRouter([
   {
-    path: ROUTES.HOME,
+    path: "/",
     element: <RootLayout />,
     errorElement: <RouteErrorBoundary />,
     children: [
+      // Auth routes with AuthLayout
       {
-        index: true,
-        element: <HomePage />,
-      },
-      {
-        path: 'auth',
+        path: "auth",
         element: <AuthLayout />,
         children: [
           {
-            path: 'login',
+            path: "login",
             element: (
               <PublicRoute>
                 <LoginPage />
@@ -61,7 +44,7 @@ export const router = createBrowserRouter([
             ),
           },
           {
-            path: 'register',
+            path: "register",
             element: (
               <PublicRoute>
                 <RegisterPage />
@@ -70,8 +53,9 @@ export const router = createBrowserRouter([
           },
         ],
       },
+      // Protected app routes with AppLayout
       {
-        path: 'app',
+        path: "/",
         element: (
           <ProtectedRoute>
             <AppLayout />
@@ -79,16 +63,16 @@ export const router = createBrowserRouter([
         ),
         children: [
           {
-            path: 'dashboard',
+            index: true, // Dashboard at root "/"
             element: <DashboardPage />,
           },
           {
-            path: 'graphs',
+            path: "graphs",
             element: <GraphsPage />,
           },
           // TODO: Add graph editor route in later tasks
           // {
-          //   path: 'graphs/:id/edit',
+          //   path: "graphs/:id",
           //   element: <GraphEditorPage />,
           // },
         ],
@@ -97,11 +81,5 @@ export const router = createBrowserRouter([
   },
 ]);
 
-// Update route constants to match nested structure
-export const APP_ROUTES = {
-  ...ROUTES,
-  LOGIN: '/auth/login',
-  REGISTER: '/auth/register',
-  DASHBOARD: '/app/dashboard',
-  GRAPHS: '/app/graphs',
-} as const; 
+// Export updated route constants
+export { ROUTES } from './routes'; 
