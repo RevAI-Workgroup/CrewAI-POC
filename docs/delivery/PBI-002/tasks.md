@@ -11,9 +11,9 @@ This document lists all tasks associated with PBI-002.
 | 2-1 | [Project Setup with Vite + React + TypeScript](mdc:PBI-002-1.md) | Done | Initialize Vite project with React 18, TypeScript strict mode, and basic configuration |
 | 2-2 | [Tailwind CSS and Component Library Integration](mdc:PBI-002-2.md) | Done | Setup Tailwind CSS and Shadcn UI component library |
 | 2-3 | [React Router v6 Setup](mdc:PBI-002-3.md) | Done | Configure React Router v6 with data router pattern and basic routing |
-| 2-4 | [Project Structure and Configuration](mdc:PBI-002-4.md) | Proposed | Organize project directories and TypeScript configuration |
-| 2-5 | [Development Tooling Setup](mdc:PBI-002-5.md) | Proposed | Configure ESLint, Prettier, Husky for code quality |
-| 2-6 | [Environment Configuration](mdc:PBI-002-6.md) | Proposed | Setup environment variables and build configuration |
+| 2-4 | [Project Structure and Configuration](mdc:PBI-002-4.md) | Done | Organize project directories and TypeScript configuration |
+| 2-5 | [Development Tooling Setup](mdc:PBI-002-5.md) | Done | Configure ESLint, Prettier, Husky for code quality |
+| 2-6 | [Environment Configuration](mdc:PBI-002-6.md) | Done | Setup environment variables and build configuration |
 | 2-7 | [Authentication Store with Zustand](mdc:PBI-002-7.md) | Proposed | Create Zustand store for pseudo/passphrase authentication |
 | 2-8 | [Registration Form Component](mdc:PBI-002-8.md) | Proposed | Build registration form with pseudo input and passphrase display |
 | 2-9 | [Login Form Component](mdc:PBI-002-9.md) | Proposed | Create login form with passphrase-only authentication |
