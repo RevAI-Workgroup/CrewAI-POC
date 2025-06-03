@@ -257,25 +257,35 @@ class GraphAnalyzer:
                 source_type = source_node.get('type')
                 target_type = target_node.get('type')
                 
-                # Business rule: Agents can connect to Tasks
-                if source_type == 'agent' and target_type not in ['task']:
+                # Business rule: Agents can connect to Tasks or LLMs
+                if source_type == 'agent' and target_type not in ['task', 'llm']:
                     violations.append((edge['id'], "INVALID_AGENT_CONNECTION", 
-                                     f"Agent nodes can only connect to Task nodes"))
+                                     f"Agent nodes can connect to Task or LLM nodes"))
                 
-                # Business rule: Tasks can connect to other Tasks or Tools
-                if source_type == 'task' and target_type not in ['task', 'tool']:
+                # Business rule: Tasks can connect to other Tasks, Tools, or LLMs
+                if source_type == 'task' and target_type not in ['task', 'tool', 'llm']:
                     violations.append((edge['id'], "INVALID_TASK_CONNECTION",
-                                     f"Task nodes can only connect to Task or Tool nodes"))
+                                     f"Task nodes can connect to Task, Tool, or LLM nodes"))
                 
-                # Business rule: Crews can connect to Agents, Tasks, and Tools
-                if source_type == 'crew' and target_type not in ['agent', 'task', 'tool']:
+                # Business rule: Crews can connect to Agents, Tasks, Tools, and LLMs
+                if source_type == 'crew' and target_type not in ['agent', 'task', 'tool', 'llm']:
                     violations.append((edge['id'], "INVALID_CREW_CONNECTION",
-                                     f"Crew nodes can connect to Agent, Task, or Tool nodes"))
+                                     f"Crew nodes can connect to Agent, Task, Tool, or LLM nodes"))
+                
+                # Business rule: LLMs can be connected from Agents, Tasks, Crews, and Flows
+                if target_type == 'llm' and source_type not in ['agent', 'task', 'crew', 'flow']:
+                    violations.append((edge['id'], "INVALID_TO_LLM_CONNECTION",
+                                     f"Only Agent, Task, Crew, or Flow nodes can connect to LLM nodes"))
+                
+                # Business rule: LLMs typically don't connect out to other nodes (they are providers)
+                if source_type == 'llm':
+                    violations.append((edge['id'], "INVALID_LLM_OUTGOING_CONNECTION",
+                                     f"LLM nodes should not have outgoing connections (they are providers)"))
                 
                 # Business rule: Nodes can connect to Crews (for composition)
-                if target_type == 'crew' and source_type not in ['agent', 'task', 'tool', 'flow']:
+                if target_type == 'crew' and source_type not in ['agent', 'task', 'tool', 'flow', 'llm']:
                     violations.append((edge['id'], "INVALID_TO_CREW_CONNECTION",
-                                     f"Only Agent, Task, Tool, or Flow nodes can connect to Crew nodes"))
+                                     f"Only Agent, Task, Tool, Flow, or LLM nodes can connect to Crew nodes"))
                 
                 # Business rule: Flow nodes can connect to any other node type
                 if source_type == 'flow':

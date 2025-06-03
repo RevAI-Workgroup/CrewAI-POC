@@ -65,7 +65,8 @@ class CrewAIValidator:
             "tasks": ["description", "expected_output"],
             "tools": ["tool_type"],
             "flows": ["flow_type"],
-            "crews": ["agent_ids", "task_ids", "process"]
+            "crews": ["agent_ids", "task_ids", "process"],
+            "llms": ["provider", "model"]
         }
     
     def validate_compatibility(self, graph_data: Dict) -> CrewAICompatibility:
@@ -79,6 +80,7 @@ class CrewAIValidator:
         agent_nodes = [n for n in nodes if n.get('type') == 'agent']
         task_nodes = [n for n in nodes if n.get('type') == 'task']
         crew_nodes = [n for n in nodes if n.get('type') == 'crew']
+        llm_nodes = [n for n in nodes if n.get('type') == 'llm']
         
         if not agent_nodes:
             issues.append(ValidationIssue(
@@ -114,12 +116,17 @@ class CrewAIValidator:
         for crew in crew_nodes:
             self._validate_crew_properties(crew, issues, nodes)
         
+        # Validate LLM properties
+        for llm in llm_nodes:
+            self._validate_llm_properties(llm, issues)
+        
         # Check feature usage
         feature_usage['agents'] = len(agent_nodes) > 0
         feature_usage['tasks'] = len(task_nodes) > 0
         feature_usage['tools'] = any(n.get('type') == 'tool' for n in nodes)
         feature_usage['flows'] = any(n.get('type') == 'flow' for n in nodes)
         feature_usage['crews'] = len(crew_nodes) > 0
+        feature_usage['llms'] = len(llm_nodes) > 0
         feature_usage['hierarchical'] = any(
             n.get('flow_type') == 'hierarchical' or n.get('process') == 'hierarchical' 
             for n in nodes if n.get('type') in ['flow', 'crew']
@@ -306,6 +313,151 @@ class CrewAIValidator:
                     node_id=crew_id,
                     edge_id=None,
                     suggestion="Enable 'allow_delegation' for at least one agent to act as manager",
+                    location=None
+                ))
+    
+    def _validate_llm_properties(self, llm: Dict, issues: List[ValidationIssue]) -> None:
+        """Validate individual LLM properties."""
+        llm_id = llm.get('id')
+        
+        # Validate required fields
+        provider = llm.get('provider')
+        model = llm.get('model')
+        
+        if not provider:
+            issues.append(ValidationIssue(
+                severity=ValidationSeverity.ERROR,
+                code="LLM_MISSING_PROVIDER",
+                message=f"LLM {llm_id} must specify a provider",
+                node_id=llm_id,
+                edge_id=None,
+                suggestion="Add a provider (e.g., 'openai', 'anthropic', 'google')",
+                location=None
+            ))
+        
+        if not model:
+            issues.append(ValidationIssue(
+                severity=ValidationSeverity.ERROR,
+                code="LLM_MISSING_MODEL",
+                message=f"LLM {llm_id} must specify a model name",
+                node_id=llm_id,
+                edge_id=None,
+                suggestion="Add a model name (e.g., 'gpt-4', 'claude-3-sonnet')",
+                location=None
+            ))
+        
+        # Validate provider-specific requirements
+        if provider:
+            valid_providers = [
+                'openai', 'anthropic', 'google', 'azure', 'aws_bedrock', 
+                'ollama', 'groq', 'huggingface', 'mistral', 'nvidia_nim',
+                'fireworks', 'perplexity', 'sambanova', 'cerebras', 'openrouter'
+            ]
+            
+            if provider not in valid_providers:
+                issues.append(ValidationIssue(
+                    severity=ValidationSeverity.ERROR,
+                    code="LLM_INVALID_PROVIDER",
+                    message=f"LLM {llm_id} has invalid provider: {provider}",
+                    node_id=llm_id,
+                    edge_id=None,
+                    suggestion=f"Use one of: {valid_providers}",
+                    location=None
+                ))
+            
+            # Provider-specific validations
+            if provider in ['openai', 'anthropic', 'groq', 'mistral'] and not llm.get('api_key'):
+                issues.append(ValidationIssue(
+                    severity=ValidationSeverity.WARNING,
+                    code="LLM_MISSING_API_KEY",
+                    message=f"LLM {llm_id} with provider '{provider}' should have an API key",
+                    node_id=llm_id,
+                    edge_id=None,
+                    suggestion="Add an API key for authentication",
+                    location=None
+                ))
+            
+            if provider == 'azure' and not llm.get('azure_deployment'):
+                issues.append(ValidationIssue(
+                    severity=ValidationSeverity.WARNING,
+                    code="LLM_AZURE_MISSING_DEPLOYMENT",
+                    message=f"LLM {llm_id} with Azure provider should have a deployment name",
+                    node_id=llm_id,
+                    edge_id=None,
+                    suggestion="Add azure_deployment field for Azure OpenAI",
+                    location=None
+                ))
+            
+            if provider == 'google' and not llm.get('vertex_credentials'):
+                issues.append(ValidationIssue(
+                    severity=ValidationSeverity.WARNING,
+                    code="LLM_GOOGLE_MISSING_CREDENTIALS",
+                    message=f"LLM {llm_id} with Google provider should have Vertex AI credentials",
+                    node_id=llm_id,
+                    edge_id=None,
+                    suggestion="Add vertex_credentials field for Google Vertex AI",
+                    location=None
+                ))
+            
+            if provider == 'aws_bedrock' and not llm.get('aws_region'):
+                issues.append(ValidationIssue(
+                    severity=ValidationSeverity.WARNING,
+                    code="LLM_AWS_MISSING_REGION",
+                    message=f"LLM {llm_id} with AWS Bedrock provider should specify a region",
+                    node_id=llm_id,
+                    edge_id=None,
+                    suggestion="Add aws_region field for AWS Bedrock",
+                    location=None
+                ))
+        
+        # Validate parameter ranges
+        temperature = llm.get('temperature')
+        if temperature is not None and (temperature < 0.0 or temperature > 2.0):
+            issues.append(ValidationIssue(
+                severity=ValidationSeverity.ERROR,
+                code="LLM_INVALID_TEMPERATURE",
+                message=f"LLM {llm_id} has invalid temperature: {temperature}",
+                node_id=llm_id,
+                edge_id=None,
+                suggestion="Set temperature between 0.0 and 2.0",
+                location=None
+            ))
+        
+        top_p = llm.get('top_p')
+        if top_p is not None and (top_p < 0.0 or top_p > 1.0):
+            issues.append(ValidationIssue(
+                severity=ValidationSeverity.ERROR,
+                code="LLM_INVALID_TOP_P",
+                message=f"LLM {llm_id} has invalid top_p: {top_p}",
+                node_id=llm_id,
+                edge_id=None,
+                suggestion="Set top_p between 0.0 and 1.0",
+                location=None
+            ))
+        
+        max_tokens = llm.get('max_tokens')
+        if max_tokens is not None and max_tokens <= 0:
+            issues.append(ValidationIssue(
+                severity=ValidationSeverity.ERROR,
+                code="LLM_INVALID_MAX_TOKENS",
+                message=f"LLM {llm_id} has invalid max_tokens: {max_tokens}",
+                node_id=llm_id,
+                edge_id=None,
+                suggestion="Set max_tokens to a positive integer",
+                location=None
+            ))
+        
+        # Validate penalty ranges
+        for penalty_field in ['frequency_penalty', 'presence_penalty']:
+            penalty_value = llm.get(penalty_field)
+            if penalty_value is not None and (penalty_value < -2.0 or penalty_value > 2.0):
+                issues.append(ValidationIssue(
+                    severity=ValidationSeverity.ERROR,
+                    code=f"LLM_INVALID_{penalty_field.upper()}",
+                    message=f"LLM {llm_id} has invalid {penalty_field}: {penalty_value}",
+                    node_id=llm_id,
+                    edge_id=None,
+                    suggestion=f"Set {penalty_field} between -2.0 and 2.0",
                     location=None
                 ))
 
@@ -586,6 +738,8 @@ class GraphValidationService:
             self._validate_flow_node(node, issues)
         elif node_type == NodeType.CREW.value:
             self._validate_crew_node(node, issues)
+        elif node_type == NodeType.LLM.value:
+            self._validate_llm_node(node, issues)
         
         is_valid = not any(issue.severity == ValidationSeverity.ERROR for issue in issues)
         
@@ -698,6 +852,226 @@ class GraphValidationService:
                 location=None
             ))
     
+    def _validate_llm_node(self, node: Dict, issues: List[ValidationIssue]) -> None:
+        """Validate LLM-specific properties."""
+        node_id = node.get('id')
+        
+        # Validate required fields
+        required_fields = ["provider", "model"]
+        
+        for field in required_fields:
+            value = node.get(field)
+            if not value or not str(value).strip():
+                issues.append(ValidationIssue(
+                    severity=ValidationSeverity.ERROR,
+                    code=f"LLM_MISSING_{field.upper()}",
+                    message=f"LLM node missing required field: {field}",
+                    node_id=node_id,
+                    edge_id=None,
+                    suggestion=f"Add {field} to the LLM configuration",
+                    location=None
+                ))
+        
+        # Validate provider-specific requirements  
+        provider = node.get('provider', '').lower()
+        if provider:
+            valid_providers = [
+                'openai', 'anthropic', 'google', 'azure', 'aws_bedrock',
+                'ollama', 'groq', 'huggingface', 'mistral', 'nvidia_nim',
+                'fireworks', 'perplexity', 'sambanova', 'cerebras', 'openrouter'
+            ]
+            
+            if provider not in valid_providers:
+                issues.append(ValidationIssue(
+                    severity=ValidationSeverity.ERROR,
+                    code="LLM_INVALID_PROVIDER",
+                    message=f"LLM node has invalid provider: {provider}",
+                    node_id=node_id,
+                    edge_id=None,
+                    suggestion=f"Use one of: {valid_providers}",
+                    location=None
+                ))
+        
+        # Validate model parameter ranges
+        temperature = node.get('temperature')
+        if temperature is not None:
+            try:
+                temp_val = float(temperature)
+                if temp_val < 0.0 or temp_val > 2.0:
+                    issues.append(ValidationIssue(
+                        severity=ValidationSeverity.ERROR,
+                        code="LLM_INVALID_TEMPERATURE",
+                        message=f"LLM node temperature must be between 0.0 and 2.0, got: {temp_val}",
+                        node_id=node_id,
+                        edge_id=None,
+                        suggestion="Set temperature between 0.0 and 2.0",
+                        location=None
+                    ))
+            except (ValueError, TypeError):
+                issues.append(ValidationIssue(
+                    severity=ValidationSeverity.ERROR,
+                    code="LLM_INVALID_TEMPERATURE_TYPE",
+                    message=f"LLM node temperature must be a number, got: {temperature}",
+                    node_id=node_id,
+                    edge_id=None,
+                    suggestion="Set temperature to a numeric value between 0.0 and 2.0",
+                    location=None
+                ))
+        
+        # Validate top_p parameter
+        top_p = node.get('top_p')
+        if top_p is not None:
+            try:
+                top_p_val = float(top_p)
+                if top_p_val < 0.0 or top_p_val > 1.0:
+                    issues.append(ValidationIssue(
+                        severity=ValidationSeverity.ERROR,
+                        code="LLM_INVALID_TOP_P",
+                        message=f"LLM node top_p must be between 0.0 and 1.0, got: {top_p_val}",
+                        node_id=node_id,
+                        edge_id=None,
+                        suggestion="Set top_p between 0.0 and 1.0",
+                        location=None
+                    ))
+            except (ValueError, TypeError):
+                issues.append(ValidationIssue(
+                    severity=ValidationSeverity.ERROR,
+                    code="LLM_INVALID_TOP_P_TYPE",
+                    message=f"LLM node top_p must be a number, got: {top_p}",
+                    node_id=node_id,
+                    edge_id=None,
+                    suggestion="Set top_p to a numeric value between 0.0 and 1.0",
+                    location=None
+                ))
+        
+        # Validate max_tokens parameter
+        max_tokens = node.get('max_tokens')
+        if max_tokens is not None:
+            try:
+                max_tokens_val = int(max_tokens)
+                if max_tokens_val <= 0:
+                    issues.append(ValidationIssue(
+                        severity=ValidationSeverity.ERROR,
+                        code="LLM_INVALID_MAX_TOKENS",
+                        message=f"LLM node max_tokens must be positive, got: {max_tokens_val}",
+                        node_id=node_id,
+                        edge_id=None,
+                        suggestion="Set max_tokens to a positive integer",
+                        location=None
+                    ))
+            except (ValueError, TypeError):
+                issues.append(ValidationIssue(
+                    severity=ValidationSeverity.ERROR,
+                    code="LLM_INVALID_MAX_TOKENS_TYPE",
+                    message=f"LLM node max_tokens must be an integer, got: {max_tokens}",
+                    node_id=node_id,
+                    edge_id=None,
+                    suggestion="Set max_tokens to a positive integer",
+                    location=None
+                ))
+        
+        # Validate frequency and presence penalties
+        for penalty_field in ['frequency_penalty', 'presence_penalty']:
+            penalty_value = node.get(penalty_field)
+            if penalty_value is not None:
+                try:
+                    penalty_val = float(penalty_value)
+                    if penalty_val < -2.0 or penalty_val > 2.0:
+                        issues.append(ValidationIssue(
+                            severity=ValidationSeverity.ERROR,
+                            code=f"LLM_INVALID_{penalty_field.upper()}",
+                            message=f"LLM node {penalty_field} must be between -2.0 and 2.0, got: {penalty_val}",
+                            node_id=node_id,
+                            edge_id=None,
+                            suggestion=f"Set {penalty_field} between -2.0 and 2.0",
+                            location=None
+                        ))
+                except (ValueError, TypeError):
+                    issues.append(ValidationIssue(
+                        severity=ValidationSeverity.ERROR,
+                        code=f"LLM_INVALID_{penalty_field.upper()}_TYPE",
+                        message=f"LLM node {penalty_field} must be a number, got: {penalty_value}",
+                        node_id=node_id,
+                        edge_id=None,
+                        suggestion=f"Set {penalty_field} to a numeric value between -2.0 and 2.0",
+                        location=None
+                    ))
+        
+        # Validate timeout parameter
+        timeout = node.get('timeout')
+        if timeout is not None:
+            try:
+                timeout_val = int(timeout)
+                if timeout_val <= 0:
+                    issues.append(ValidationIssue(
+                        severity=ValidationSeverity.ERROR,
+                        code="LLM_INVALID_TIMEOUT",
+                        message=f"LLM node timeout must be positive, got: {timeout_val}",
+                        node_id=node_id,
+                        edge_id=None,
+                        suggestion="Set timeout to a positive integer (seconds)",
+                        location=None
+                    ))
+            except (ValueError, TypeError):
+                issues.append(ValidationIssue(
+                    severity=ValidationSeverity.ERROR,
+                    code="LLM_INVALID_TIMEOUT_TYPE",
+                    message=f"LLM node timeout must be an integer, got: {timeout}",
+                    node_id=node_id,
+                    edge_id=None,
+                    suggestion="Set timeout to a positive integer (seconds)",
+                    location=None
+                ))
+        
+        # Validate max_retries parameter
+        max_retries = node.get('max_retries')
+        if max_retries is not None:
+            try:
+                max_retries_val = int(max_retries)
+                if max_retries_val < 0:
+                    issues.append(ValidationIssue(
+                        severity=ValidationSeverity.ERROR,
+                        code="LLM_INVALID_MAX_RETRIES",
+                        message=f"LLM node max_retries must be non-negative, got: {max_retries_val}",
+                        node_id=node_id,
+                        edge_id=None,
+                        suggestion="Set max_retries to a non-negative integer",
+                        location=None
+                    ))
+            except (ValueError, TypeError):
+                issues.append(ValidationIssue(
+                    severity=ValidationSeverity.ERROR,
+                    code="LLM_INVALID_MAX_RETRIES_TYPE",
+                    message=f"LLM node max_retries must be an integer, got: {max_retries}",
+                    node_id=node_id,
+                    edge_id=None,
+                    suggestion="Set max_retries to a non-negative integer",
+                    location=None
+                ))
+        
+        # Provider-specific validation warnings
+        if provider in ['openai', 'anthropic', 'groq', 'mistral'] and not node.get('api_key'):
+            issues.append(ValidationIssue(
+                severity=ValidationSeverity.WARNING,
+                code="LLM_MISSING_API_KEY",
+                message=f"LLM node with provider '{provider}' should have an API key",
+                node_id=node_id,
+                edge_id=None,
+                suggestion="Add an API key for authentication",
+                location=None
+            ))
+        
+        if provider == 'azure' and not node.get('azure_deployment'):
+            issues.append(ValidationIssue(
+                severity=ValidationSeverity.WARNING,
+                code="LLM_AZURE_MISSING_DEPLOYMENT",
+                message=f"LLM node with Azure provider should have a deployment name",
+                node_id=node_id,
+                edge_id=None,
+                suggestion="Add azure_deployment field for Azure OpenAI",
+                location=None
+            ))
+    
     def _validate_edges(self, graph_data: Dict, result: GraphValidationResult) -> None:
         """Validate graph edges."""
         edges = graph_data.get('edges', [])
@@ -772,8 +1146,8 @@ class GraphValidationService:
     
     def _count_rules_applied(self) -> int:
         """Count the number of validation rules applied."""
-        # Updated count to include crew validation rules
-        return 20  # Basic count of validation rules including crew validation
+        # Updated count to include LLM validation rules
+        return 25  # Basic count of validation rules including LLM validation
     
     def clear_cache(self) -> None:
         """Clear validation cache."""
