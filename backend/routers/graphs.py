@@ -13,7 +13,7 @@ from schemas.nodes import GraphSchema
 from services.node_definitions import NodeDefinitionService
 from utils.dependencies import get_db, get_current_user
 
-router = APIRouter(prefix="/api", tags=["graphs"])
+router = APIRouter(tags=["graphs"])
 
 
 @router.get("/graphs/nodes")
