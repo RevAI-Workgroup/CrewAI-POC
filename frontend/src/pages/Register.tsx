@@ -1,4 +1,3 @@
-import React from 'react';
 import { RegistrationForm } from '../components/auth/registration-form';
 
 export function RegisterPage() {

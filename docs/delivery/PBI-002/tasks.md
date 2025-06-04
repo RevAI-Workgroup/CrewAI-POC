@@ -26,7 +26,7 @@ This document lists all tasks associated with PBI-002.
 | 2-16 | [Responsive Layout Implementation](mdc:./tasks/PBI-002-16.md) | Done | Implement mobile-first responsive design |
 | 2-17 | [Theme System](mdc:./tasks/PBI-002-17.md) | Done | Add dark/light mode theme system |
 | 2-18 | [Layout State Management](mdc:./tasks/PBI-002-18.md) | Done | Manage layout state (sidebar toggle, theme) |
-| 2-19 | [Graph Store and CRUD](mdc:./tasks/PBI-002-19.md) | Proposed | Create Zustand store for graph management |
+| 2-19 | [Graph Store and CRUD](mdc:./tasks/PBI-002-19.md) | Done | Create Zustand store for graph management |
 | 2-20 | [Graph List View](mdc:./tasks/PBI-002-20.md) | Proposed | Build graph list component with CRUD operations |
 | 2-21 | [Graph Creation and Editing](mdc:./tasks/PBI-002-21.md) | Proposed | Create graph forms for metadata management |
 | 2-22 | [Graph Deletion](mdc:./tasks/PBI-002-22.md) | Proposed | Implement graph deletion with confirmation |

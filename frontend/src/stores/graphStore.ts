@@ -1,0 +1,231 @@
+import { create } from 'zustand';
+import { subscribeWithSelector } from 'zustand/middleware';
+import apiClient from '@/services/api';
+import { API_ROUTES } from '@/config/api';
+import type { Graph } from '@/types/graph.types';
+
+interface GraphStoreState {
+  // State
+  graphs: Graph[];
+  selectedGraph: Graph | null;
+  
+  // Loading states
+  isLoading: boolean;
+  isCreating: boolean;
+  isUpdating: boolean;
+  isDeleting: boolean;
+  
+  // Error handling
+  error: string | null;
+
+  // Actions
+  fetchGraphs: () => Promise<void>;
+  createGraph: () => Promise<Graph>;
+  updateGraph: (id: string, data: Partial<Graph>) => Promise<void>;
+  deleteGraph: (id: string) => Promise<void>;
+  duplicateGraph: (id: string) => Promise<Graph>;
+  
+  // Selection
+  setSelectedGraph: (graph: Graph | null) => void;
+  getGraphById: (id: string) => Graph | undefined;
+  
+  // Utilities
+  clearError: () => void;
+  setLoading: (loading: boolean) => void;
+}
+
+const useGraphStore = create<GraphStoreState>()(
+  subscribeWithSelector((set, get) => ({
+    // Initial state
+    graphs: [],
+    selectedGraph: null,
+    isLoading: false,
+    isCreating: false,
+    isUpdating: false,
+    isDeleting: false,
+    error: null,
+
+    // Actions
+    fetchGraphs: async (): Promise<void> => {
+      set({ isLoading: true, error: null });
+      
+      try {
+        const response = await apiClient.get<Graph[]>(API_ROUTES.GRAPHS.LIST);
+        
+        set({
+          graphs: response.data,
+          isLoading: false,
+          error: null,
+        });
+      } catch (error: unknown) {
+        const axiosError = error as { response?: { data?: { detail?: string; message?: string } } };
+        const errorMessage = axiosError.response?.data?.detail || 
+                           axiosError.response?.data?.message || 
+                           'Failed to fetch graphs. Please try again.';
+        
+        set({
+          error: errorMessage,
+          isLoading: false,
+        });
+        
+        throw new Error(errorMessage);
+      }
+    },
+
+    createGraph: async (): Promise<Graph> => {
+      set({ isCreating: true, error: null });
+      
+      try {
+        // Send POST request with empty body as requested
+        const requestBody = {};
+        const response = await apiClient.post<Graph>(API_ROUTES.GRAPHS.CREATE, requestBody);
+        
+        const newGraph = response.data;
+        
+        // Update local state
+        set((state) => ({
+          graphs: [...state.graphs, newGraph],
+          isCreating: false,
+          error: null,
+        }));
+
+        return newGraph;
+      } catch (error: unknown) {
+        const axiosError = error as { response?: { data?: { detail?: string; message?: string } } };
+        const errorMessage = axiosError.response?.data?.detail || 
+                           axiosError.response?.data?.message || 
+                           'Failed to create graph. Please try again.';
+        
+        set({
+          error: errorMessage,
+          isCreating: false,
+        });
+        
+        throw new Error(errorMessage);
+      }
+    },
+
+    updateGraph: async (id: string, data: Partial<Graph>): Promise<void> => {
+      set({ isUpdating: true, error: null });
+      
+      try {
+        const response = await apiClient.put<Graph>(API_ROUTES.GRAPHS.UPDATE(id), data);
+        
+        const updatedGraph = response.data;
+        
+        // Update local state
+        set((state) => ({
+          graphs: state.graphs.map((graph) => 
+            graph.id === id ? updatedGraph : graph
+          ),
+          selectedGraph: state.selectedGraph?.id === id ? updatedGraph : state.selectedGraph,
+          isUpdating: false,
+          error: null,
+        }));
+      } catch (error: unknown) {
+        const axiosError = error as { response?: { data?: { detail?: string; message?: string } } };
+        const errorMessage = axiosError.response?.data?.detail || 
+                           axiosError.response?.data?.message || 
+                           'Failed to update graph. Please try again.';
+        
+        set({
+          error: errorMessage,
+          isUpdating: false,
+        });
+        
+        throw new Error(errorMessage);
+      }
+    },
+
+    deleteGraph: async (id: string): Promise<void> => {
+      set({ isDeleting: true, error: null });
+      
+      try {
+        await apiClient.delete(API_ROUTES.GRAPHS.DELETE(id));
+        
+        // Update local state
+        set((state) => ({
+          graphs: state.graphs.filter((graph) => graph.id !== id),
+          selectedGraph: state.selectedGraph?.id === id ? null : state.selectedGraph,
+          isDeleting: false,
+          error: null,
+        }));
+      } catch (error: unknown) {
+        const axiosError = error as { response?: { data?: { detail?: string; message?: string } } };
+        const errorMessage = axiosError.response?.data?.detail || 
+                           axiosError.response?.data?.message || 
+                           'Failed to delete graph. Please try again.';
+        
+        set({
+          error: errorMessage,
+          isDeleting: false,
+        });
+        
+        throw new Error(errorMessage);
+      }
+    },
+
+    duplicateGraph: async (id: string): Promise<Graph> => {
+      set({ isCreating: true, error: null });
+      
+      try {
+        const response = await apiClient.post<Graph>(API_ROUTES.GRAPHS.DUPLICATE(id));
+        
+        const duplicatedGraph = response.data;
+        
+        // Update local state
+        set((state) => ({
+          graphs: [...state.graphs, duplicatedGraph],
+          isCreating: false,
+          error: null,
+        }));
+
+        return duplicatedGraph;
+      } catch (error: unknown) {
+        const axiosError = error as { response?: { data?: { detail?: string; message?: string } } };
+        const errorMessage = axiosError.response?.data?.detail || 
+                           axiosError.response?.data?.message || 
+                           'Failed to duplicate graph. Please try again.';
+        
+        set({
+          error: errorMessage,
+          isCreating: false,
+        });
+        
+        throw new Error(errorMessage);
+      }
+    },
+
+    // Selection methods
+    setSelectedGraph: (graph: Graph | null) => {
+      set({ selectedGraph: graph });
+    },
+
+    getGraphById: (id: string): Graph | undefined => {
+      return get().graphs.find((graph) => graph.id === id);
+    },
+
+    // Utility methods
+    clearError: () => {
+      set({ error: null });
+    },
+
+    setLoading: (loading: boolean) => {
+      set({ isLoading: loading });
+    },
+  }))
+);
+
+export default useGraphStore;
+
+// Export individual action functions for convenience
+export const fetchGraphs = () => useGraphStore.getState().fetchGraphs();
+export const createGraph = () => useGraphStore.getState().createGraph();
+export const updateGraph = (id: string, data: Partial<Graph>) => 
+  useGraphStore.getState().updateGraph(id, data);
+export const deleteGraph = (id: string) => useGraphStore.getState().deleteGraph(id);
+export const duplicateGraph = (id: string) => useGraphStore.getState().duplicateGraph(id);
+export const setSelectedGraph = (graph: Graph | null) => 
+  useGraphStore.getState().setSelectedGraph(graph);
+export const getGraphById = (id: string) => useGraphStore.getState().getGraphById(id);
+export const clearGraphError = () => useGraphStore.getState().clearError(); 

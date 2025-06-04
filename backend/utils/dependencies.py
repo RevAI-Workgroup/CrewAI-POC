@@ -23,21 +23,21 @@ async def get_current_user(
     """
     token = credentials.credentials
     payload = verify_token(token, "access")
-    
+
     if payload is None:
         raise AuthenticationError("Invalid authentication credentials")
-    
+
     user_id = payload.get("sub")
     if user_id is None:
         raise AuthenticationError("Invalid token payload")
-    
+
     # Simple query without complex filters
     user = db.query(User).filter(User.id == user_id).first()
-    
+
     # Check user exists
     if user is None:
         raise AuthenticationError("User not found or inactive")
-    
+
     return user
 
 async def get_current_active_user(

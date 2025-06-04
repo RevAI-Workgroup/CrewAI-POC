@@ -16,13 +16,13 @@ from utils.dependencies import get_db, get_current_user
 router = APIRouter(prefix="/api", tags=["graphs"])
 
 
-@router.get("/node-definitions/structure")
-async def get_node_definitions_structure(
+@router.get("/graphs/nodes")
+async def get_node_definitions(
     current_user: User = Depends(get_current_user)
 ):
     """
     Get node definition structure for frontend rendering.
-    
+
     Returns metadata for all node types including field requirements,
     types, validation rules, and connection constraints.
     """
@@ -48,13 +48,13 @@ async def list_graphs(
 ):
     """
     List all graphs for the current user.
-    
+
     Args:
         skip: Number of records to skip (pagination)
         limit: Maximum number of records to return
         db: Database session
         current_user: Authenticated user
-        
+
     Returns:
         List of user's graphs
     """
@@ -62,7 +62,7 @@ async def list_graphs(
         graphs = db.query(Graph).filter(
             Graph.user_id == current_user.id
         ).offset(skip).limit(limit).all()
-        
+
         return {
             "success": True,
             "data": graphs,
@@ -83,12 +83,12 @@ async def get_graph(
 ):
     """
     Get a specific graph by ID.
-    
+
     Args:
         graph_id: Graph identifier
         db: Database session
         current_user: Authenticated user
-        
+
     Returns:
         Graph data with nodes and connections
     """
@@ -97,13 +97,13 @@ async def get_graph(
             Graph.id == graph_id,
             Graph.user_id == current_user.id
         ).first()
-        
+
         if not graph:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Graph not found"
             )
-        
+
         return {
             "success": True,
             "data": graph
@@ -125,12 +125,12 @@ async def create_graph(
 ):
     """
     Create a new graph.
-    
+
     Args:
         graph_data: Graph creation data (name, description, etc.)
         db: Database session
         current_user: Authenticated user
-        
+
     Returns:
         Created graph data
     """
@@ -143,11 +143,11 @@ async def create_graph(
             is_template=graph_data.get("is_template", False),
             user_id=current_user.id
         )
-        
+
         db.add(new_graph)
         db.commit()
         db.refresh(new_graph)
-        
+
         return {
             "success": True,
             "data": new_graph,
@@ -170,13 +170,13 @@ async def update_graph(
 ):
     """
     Update an existing graph.
-    
+
     Args:
         graph_id: Graph identifier
         graph_data: Updated graph data
         db: Database session
         current_user: Authenticated user
-        
+
     Returns:
         Updated graph data
     """
@@ -186,13 +186,13 @@ async def update_graph(
             Graph.id == graph_id,
             Graph.user_id == current_user.id
         ).first()
-        
+
         if not graph:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Graph not found"
             )
-        
+
         # Update graph fields
         if "name" in graph_data:
             graph.name = graph_data["name"]
@@ -202,10 +202,10 @@ async def update_graph(
             graph.graph_data = graph_data["graph_data"]
         if "is_template" in graph_data:
             graph.is_template = graph_data["is_template"]
-            
+
         db.commit()
         db.refresh(graph)
-        
+
         return {
             "success": True,
             "data": graph,
@@ -229,12 +229,12 @@ async def delete_graph(
 ):
     """
     Delete a graph.
-    
+
     Args:
         graph_id: Graph identifier
         db: Database session
         current_user: Authenticated user
-        
+
     Returns:
         Success confirmation
     """
@@ -244,17 +244,17 @@ async def delete_graph(
             Graph.id == graph_id,
             Graph.user_id == current_user.id
         ).first()
-        
+
         if not graph:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Graph not found"
             )
-        
+
         # Delete the graph
         db.delete(graph)
         db.commit()
-        
+
         return {
             "success": True,
             "message": "Graph deleted successfully"
@@ -266,4 +266,4 @@ async def delete_graph(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete graph: {str(e)}"
-        ) 
+        )
