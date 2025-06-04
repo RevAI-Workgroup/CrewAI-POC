@@ -137,8 +137,8 @@ async def create_graph(
     try:
         # Create new graph
         new_graph = Graph(
-            name=graph_data.get("name", "Untitled Graph"),
-            description=graph_data.get("description"),
+            name=graph_data.get("name", "Untitled"),
+            description=graph_data.get("description", ""),
             graph_data=graph_data.get("graph_data", {}),
             is_template=graph_data.get("is_template", False),
             user_id=current_user.id

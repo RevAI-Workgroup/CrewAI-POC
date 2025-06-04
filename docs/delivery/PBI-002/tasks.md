@@ -20,12 +20,12 @@ This document lists all tasks associated with PBI-002.
 | 2-10 | [JWT Token Management](mdc:./tasks/PBI-002-10.md) | Done | Implement JWT token storage and auto-refresh functionality |
 | 2-11 | [Protected Route Components](mdc:./tasks/PBI-002-11.md) | Done | Create route protection with token validation |
 | 2-12 | [Authentication Flow Integration](mdc:./tasks/PBI-002-12.md) | Done | Integrate complete auth flow with backend API |
-| 2-13 | [Main Layout Component](mdc:./tasks/PBI-002-13.md) | Proposed | Create main application layout structure |
-| 2-14 | [Sidebar Navigation](mdc:./tasks/PBI-002-14.md) | Proposed | Build sidebar navigation with routing integration |
-| 2-15 | [Header Component](mdc:./tasks/PBI-002-15.md) | Proposed | Create header with user pseudo display and logout |
-| 2-16 | [Responsive Layout Implementation](mdc:./tasks/PBI-002-16.md) | Proposed | Implement mobile-first responsive design |
-| 2-17 | [Theme System](mdc:./tasks/PBI-002-17.md) | Proposed | Add dark/light mode theme system |
-| 2-18 | [Layout State Management](mdc:./tasks/PBI-002-18.md) | Proposed | Manage layout state (sidebar toggle, theme) |
+| 2-13 | [Main Layout Component](mdc:./tasks/PBI-002-13.md) | Done | Create main application layout structure |
+| 2-14 | [Sidebar Navigation](mdc:./tasks/PBI-002-14.md) | Done | Build sidebar navigation with routing integration |
+| 2-15 | [Header Component](mdc:./tasks/PBI-002-15.md) | Done | Create header with user pseudo display and logout |
+| 2-16 | [Responsive Layout Implementation](mdc:./tasks/PBI-002-16.md) | Done | Implement mobile-first responsive design |
+| 2-17 | [Theme System](mdc:./tasks/PBI-002-17.md) | Done | Add dark/light mode theme system |
+| 2-18 | [Layout State Management](mdc:./tasks/PBI-002-18.md) | Done | Manage layout state (sidebar toggle, theme) |
 | 2-19 | [Graph Store and CRUD](mdc:./tasks/PBI-002-19.md) | Proposed | Create Zustand store for graph management |
 | 2-20 | [Graph List View](mdc:./tasks/PBI-002-20.md) | Proposed | Build graph list component with CRUD operations |
 | 2-21 | [Graph Creation and Editing](mdc:./tasks/PBI-002-21.md) | Proposed | Create graph forms for metadata management |

@@ -41,7 +41,7 @@ The backend uses a unique authentication system that replaces traditional email/
 
 #### **Registration Process:**
 1. **User Input**: User provides only a `pseudo` (display name, non-unique)
-2. **Passphrase Generation**: Backend generates a unique 6-word passphrase 
+2. **Passphrase Generation**: Backend generates a unique 6-word passphrase
 3. **Auto-Login**: Registration response includes JWT tokens for immediate login
 4. **Passphrase Display**: Frontend must prominently display generated passphrase for user to save
 
