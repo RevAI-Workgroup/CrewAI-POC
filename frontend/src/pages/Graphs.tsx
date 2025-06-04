@@ -45,14 +45,19 @@ export function GraphsPage() {
   }, []);
 
   const handleCreateGraph = async () => {
-    try {
-      const newGraph = await createGraph();
-      console.log("New graph", newGraph)
+    
+      createGraph().then(
+        (newGraph) => {
+          console.log("New graph", newGraph)
+          navigate(`/graphs/${newGraph.id}`);
+        }
+      ).catch((error) => {
+        console.error('Failed to create graph:', error);  
+      });
+      
 
-      //navigate(`/graphs/${newGraph.id}`);
-    } catch (error) {
-      console.error('Failed to create graph:', error);
-    }
+      
+    
   };
 
   const handleDeleteGraph = async (id: string) => {
@@ -145,7 +150,7 @@ export function GraphsPage() {
             </Card>
           ))}
         </div>
-      ) : graphs.count === 0 ? (
+      ) : graphs.data.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <div className="text-center space-y-4">
@@ -167,8 +172,8 @@ export function GraphsPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {graphs.data.map((graph) => (
-            <Card key={graph.id} className="cursor-pointer hover:shadow-md transition-shadow">
+          {graphs.data.map((graph, i) => (
+            <Card key={i} className="cursor-pointer hover:shadow-md transition-shadow">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">

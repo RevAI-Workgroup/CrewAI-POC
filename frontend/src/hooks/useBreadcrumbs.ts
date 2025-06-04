@@ -16,13 +16,7 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
     const path = location.pathname
     const items: BreadcrumbItem[] = []
 
-    // Always start with Dashboard as home
-    if (path !== ROUTES.DASHBOARD) {
-      items.push({
-        title: 'Dashboard',
-        href: ROUTES.DASHBOARD,
-      })
-    }
+    
 
     // Handle different route patterns
     if (path === ROUTES.DASHBOARD) {

@@ -11,6 +11,12 @@ interface FetchGraphResponse {
   data: Graph[]
 }
 
+interface CreateGraphResponse {
+  success:boolean
+  message: string
+  data: Graph
+}
+
 interface GraphStoreState {
   // State
   graphs: FetchGraphResponse;
@@ -91,7 +97,7 @@ const useGraphStore = create<GraphStoreState>()(
       try {
         // Send POST request with empty body as requested
         const requestBody = {};
-        const response = await apiClient.post<Graph>(API_ROUTES.GRAPHS.CREATE, requestBody);
+        const response = await apiClient.post<CreateGraphResponse>(API_ROUTES.GRAPHS.CREATE, requestBody);
         
         const newGraph = response.data;
         
@@ -99,13 +105,13 @@ const useGraphStore = create<GraphStoreState>()(
         set((state) => ({
           graphs: {
             ...state.graphs,
-            data: [...state.graphs.data, newGraph],
+            data: [...state.graphs.data, newGraph.data],
           },
           isCreating: false,
           error: null,
         }));
 
-        return newGraph;
+        return newGraph.data;
       } catch (error: unknown) {
         const axiosError = error as { response?: { data?: { detail?: string; message?: string } } };
         const errorMessage = axiosError.response?.data?.detail || 

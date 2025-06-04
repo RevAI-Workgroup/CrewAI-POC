@@ -14,7 +14,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { Outlet } from "react-router-dom"
+import { Link, Outlet } from "react-router-dom"
 import { useBreadcrumbs } from "@/hooks/useBreadcrumbs"
 
 export function AppLayout() {
@@ -46,8 +46,11 @@ export function AppLayout() {
                       {item.isCurrentPage ? (
                         <BreadcrumbPage>{item.title}</BreadcrumbPage>
                       ) : (
-                        <BreadcrumbLink href={item.href}>
-                          {item.title}
+                        <BreadcrumbLink asChild>
+                          <Link to={item.href || ""}>
+                            {item.title}
+                          </Link>
+                          
                         </BreadcrumbLink>
                       )}
                     </BreadcrumbItem>
