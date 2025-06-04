@@ -4,9 +4,16 @@ import apiClient from '@/services/api';
 import { API_ROUTES } from '@/config/api';
 import type { Graph } from '@/types/graph.types';
 
+
+interface FetchGraphResponse {
+  success:boolean
+  count: number
+  data: Graph[]
+}
+
 interface GraphStoreState {
   // State
-  graphs: Graph[];
+  graphs: FetchGraphResponse;
   selectedGraph: Graph | null;
   
   // Loading states
@@ -37,7 +44,11 @@ interface GraphStoreState {
 const useGraphStore = create<GraphStoreState>()(
   subscribeWithSelector((set, get) => ({
     // Initial state
-    graphs: [],
+    graphs: {
+      count: 0,
+      data: [],
+      success: true,
+    },
     selectedGraph: null,
     isLoading: false,
     isCreating: false,
@@ -50,7 +61,9 @@ const useGraphStore = create<GraphStoreState>()(
       set({ isLoading: true, error: null });
       
       try {
-        const response = await apiClient.get<Graph[]>(API_ROUTES.GRAPHS.LIST);
+        const response = await apiClient.get<FetchGraphResponse>(API_ROUTES.GRAPHS.LIST);
+
+        console.log("Graphs",response.data)
         
         set({
           graphs: response.data,
@@ -84,7 +97,10 @@ const useGraphStore = create<GraphStoreState>()(
         
         // Update local state
         set((state) => ({
-          graphs: [...state.graphs, newGraph],
+          graphs: {
+            ...state.graphs,
+            data: [...state.graphs.data, newGraph],
+          },
           isCreating: false,
           error: null,
         }));
@@ -115,9 +131,12 @@ const useGraphStore = create<GraphStoreState>()(
         
         // Update local state
         set((state) => ({
-          graphs: state.graphs.map((graph) => 
-            graph.id === id ? updatedGraph : graph
-          ),
+          graphs: {
+            ...state.graphs,
+            data: state.graphs.data.map((graph) => 
+              graph.id === id ? updatedGraph : graph
+            ),
+          },
           selectedGraph: state.selectedGraph?.id === id ? updatedGraph : state.selectedGraph,
           isUpdating: false,
           error: null,
@@ -145,7 +164,10 @@ const useGraphStore = create<GraphStoreState>()(
         
         // Update local state
         set((state) => ({
-          graphs: state.graphs.filter((graph) => graph.id !== id),
+          graphs: {
+            ...state.graphs,
+            data: state.graphs.data.filter((graph) => graph.id !== id)
+          },
           selectedGraph: state.selectedGraph?.id === id ? null : state.selectedGraph,
           isDeleting: false,
           error: null,
@@ -175,7 +197,10 @@ const useGraphStore = create<GraphStoreState>()(
         
         // Update local state
         set((state) => ({
-          graphs: [...state.graphs, duplicatedGraph],
+          graphs: {
+            ...state.graphs,
+            data: [...state.graphs.data, duplicatedGraph],
+          },
           isCreating: false,
           error: null,
         }));
@@ -202,7 +227,7 @@ const useGraphStore = create<GraphStoreState>()(
     },
 
     getGraphById: (id: string): Graph | undefined => {
-      return get().graphs.find((graph) => graph.id === id);
+      return get().graphs.data.find((graph) => graph.id === id);
     },
 
     // Utility methods
