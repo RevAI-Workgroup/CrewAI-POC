@@ -39,11 +39,6 @@ class Graph(BaseModel):
     threads = relationship("Thread", back_populates="graph", cascade="all, delete-orphan")
     executions = relationship("Execution", back_populates="graph", cascade="all, delete-orphan")
     
-    # Constraints
-    __table_args__ = (
-        UniqueConstraint('user_id', 'name', name='uq_user_graph_name'),
-    )
-    
     def set_graph_data(self, nodes: List[Dict[str, Any]], edges: List[Dict[str, Any]], metadata: Optional[Dict[str, Any]] = None) -> None:
         """Set the graph data with nodes and edges"""
         graph_data = {

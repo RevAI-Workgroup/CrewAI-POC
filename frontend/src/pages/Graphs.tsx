@@ -47,7 +47,9 @@ export function GraphsPage() {
   const handleCreateGraph = async () => {
     try {
       const newGraph = await createGraph();
-      navigate(`/graphs/${newGraph.id}`);
+      console.log("New graph", newGraph)
+
+      //navigate(`/graphs/${newGraph.id}`);
     } catch (error) {
       console.error('Failed to create graph:', error);
     }
