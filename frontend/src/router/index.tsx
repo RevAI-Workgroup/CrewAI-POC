@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import { AuthLayout } from '../layouts/RootLayout';
 import { ProtectedRoute, PublicRoute } from '../components/ProtectedRoute';
 import { RegisterPage } from '@/pages/Register';
@@ -7,49 +7,63 @@ import { GraphsPage } from '@/pages/Graphs';
 import { DashboardPage } from '@/pages/Dashboard';
 import { GraphEditorPage } from '@/pages/GraphEditor';
 import { AppLayout } from '@/layouts/AppLayout';
+import { graphsLoader, graphLoader } from './loaders';
 
-// Router component using Routes instead of createBrowserRouter
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: (
+      <ProtectedRoute>
+        <AppLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      {
+        index: true,
+        element: <DashboardPage />
+      },
+      {
+        path: "graphs",
+        element: <GraphsPage />,
+        loader: graphsLoader
+      },
+      {
+        path: "graphs/:id",
+        element: <GraphEditorPage />,
+        loader: graphLoader
+      }
+    ]
+  },
+  {
+    path: "/auth",
+    element: <AuthLayout />,
+    children: [
+      {
+        path: "login",
+        element: (
+          <PublicRoute>
+            <LoginPage />
+          </PublicRoute>
+        )
+      },
+      {
+        path: "register",
+        element: (
+          <PublicRoute>
+            <RegisterPage />
+          </PublicRoute>
+        )
+      }
+    ]
+  },
+  {
+    path: "*",
+    element: <Navigate to="/" replace />
+  }
+]);
+
 const Router = () => {
-  return (
-    <Routes>
-        {/* Auth routes with AuthLayout */}
-        <Route path="auth" element={<AuthLayout />}>
-          <Route 
-            path="login" 
-            element={
-              <PublicRoute>
-                <LoginPage />
-              </PublicRoute>
-            } 
-          />
-          <Route 
-            path="register" 
-            element={
-              <PublicRoute>
-                <RegisterPage />
-              </PublicRoute>
-            } 
-          />
-        </Route>
-
-        {/* Protected app routes with AppLayout */}
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <AppLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<DashboardPage />} />
-        <Route path="graphs" element={<GraphsPage />} />
-        <Route
-          path="graphs/:id"
-          element={<GraphEditorPage />}
-        />
-      </Route>
-    </Routes>
-  );
+  return <RouterProvider router={router} />;
 };
 
 export default Router;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Trash2, Copy, Edit, Plus, MoreVertical } from 'lucide-react';
 import { useGraphStore } from '@/stores';
@@ -31,7 +31,6 @@ export function GraphsPage() {
     isLoading,
     isCreating,
     error,
-    fetchGraphs,
     createGraph,
     deleteGraph,
     duplicateGraph,
@@ -40,24 +39,13 @@ export function GraphsPage() {
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchGraphs();
-  }, []);
-
   const handleCreateGraph = async () => {
-    
-      createGraph().then(
-        (newGraph) => {
-          console.log("New graph", newGraph)
-          navigate(`/graphs/${newGraph.id}`);
-        }
-      ).catch((error) => {
-        console.error('Failed to create graph:', error);  
-      });
-      
-
-      
-    
+    try {
+      const newGraph = await createGraph();
+      navigate(`/graphs/${newGraph.id}`);
+    } catch (error) {
+      console.error('Failed to create graph:', error);
+    }
   };
 
   const handleDeleteGraph = async (id: string) => {
@@ -110,7 +98,7 @@ export function GraphsPage() {
               variant="outline" 
               onClick={() => {
                 clearError();
-                fetchGraphs();
+                window.location.reload();
               }}
               className="mt-4"
             >
@@ -172,8 +160,8 @@ export function GraphsPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {graphs.data.map((graph, i) => (
-            <Card key={i} className="cursor-pointer hover:shadow-md transition-shadow">
+          {graphs.data.map((graph) => (
+            <Card key={graph.id} className="cursor-pointer hover:shadow-md transition-shadow">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">

@@ -5,10 +5,15 @@ import { API_ROUTES } from '@/config/api';
 import type { Graph } from '@/types/graph.types';
 
 
-interface FetchGraphResponse {
+interface FetchGraphsResponse {
   success:boolean
   count: number
   data: Graph[]
+}
+
+interface GetGraphResponse {
+  data: Graph
+  success: boolean
 }
 
 interface CreateGraphResponse {
@@ -19,7 +24,7 @@ interface CreateGraphResponse {
 
 interface GraphStoreState {
   // State
-  graphs: FetchGraphResponse;
+  graphs: FetchGraphsResponse;
   selectedGraph: Graph | null;
   
   // Loading states
@@ -33,6 +38,7 @@ interface GraphStoreState {
 
   // Actions
   fetchGraphs: () => Promise<void>;
+  fetchGraphById: (id: string) => Promise<Graph>;
   createGraph: () => Promise<Graph>;
   updateGraph: (id: string, data: Partial<Graph>) => Promise<void>;
   deleteGraph: (id: string) => Promise<void>;
@@ -67,10 +73,8 @@ const useGraphStore = create<GraphStoreState>()(
       set({ isLoading: true, error: null });
       
       try {
-        const response = await apiClient.get<FetchGraphResponse>(API_ROUTES.GRAPHS.LIST);
+        const response = await apiClient.get<FetchGraphsResponse>(API_ROUTES.GRAPHS.LIST);
 
-        console.log("Graphs",response.data)
-        
         set({
           graphs: response.data,
           isLoading: false,
@@ -82,6 +86,57 @@ const useGraphStore = create<GraphStoreState>()(
                            axiosError.response?.data?.message || 
                            'Failed to fetch graphs. Please try again.';
         
+        set({
+          error: errorMessage,
+          isLoading: false,
+        });
+        
+        throw new Error(errorMessage);
+      }
+    },
+
+    fetchGraphById: async (id: string): Promise<Graph> => {
+      set({ isLoading: true, error: null });
+      
+      try {
+        const response = await apiClient.get<GetGraphResponse>(API_ROUTES.GRAPHS.GET(id));
+        const graph = response.data.data;
+
+        // Update local store with the fetched graph if it's not already there
+        set((state) => {
+          const existingGraphIndex = state.graphs.data.findIndex(g => g.id === id);
+          if (existingGraphIndex >= 0) {
+            // Update existing graph
+            const updatedGraphs = [...state.graphs.data];
+            updatedGraphs[existingGraphIndex] = graph;
+            return {
+              graphs: {
+                ...state.graphs,
+                data: updatedGraphs,
+              },
+              isLoading: false,
+              error: null,
+            };
+          } else {
+            // Add new graph to store
+            return {
+              graphs: {
+                ...state.graphs,
+                data: [...state.graphs.data, graph],
+              },
+              isLoading: false,
+              error: null,
+            };
+          }
+        });
+
+        return graph;
+      } catch (error: unknown) {
+        const axiosError = error as { response?: { data?: { detail?: string; message?: string } } };
+        const errorMessage = axiosError.response?.data?.detail || 
+                           axiosError.response?.data?.message || 
+                           'Failed to fetch graph. Please try again.';
+
         set({
           error: errorMessage,
           isLoading: false,
@@ -251,6 +306,7 @@ export default useGraphStore;
 
 // Export individual action functions for convenience
 export const fetchGraphs = () => useGraphStore.getState().fetchGraphs();
+export const fetchGraphById = (id: string) => useGraphStore.getState().fetchGraphById(id);
 export const createGraph = () => useGraphStore.getState().createGraph();
 export const updateGraph = (id: string, data: Partial<Graph>) => 
   useGraphStore.getState().updateGraph(id, data);

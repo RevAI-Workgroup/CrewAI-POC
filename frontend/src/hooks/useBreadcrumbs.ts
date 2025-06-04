@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import { ROUTES } from '@/router/routes'
+import { useGraphStore } from '@/stores'
 
 export interface BreadcrumbItem {
   title: string
@@ -11,12 +12,11 @@ export interface BreadcrumbItem {
 export function useBreadcrumbs(): BreadcrumbItem[] {
   const location = useLocation()
   const params = useParams()
+  const { getGraphById } = useGraphStore()
 
   const breadcrumbs = useMemo(() => {
     const path = location.pathname
     const items: BreadcrumbItem[] = []
-
-    
 
     // Handle different route patterns
     if (path === ROUTES.DASHBOARD) {
@@ -35,15 +35,19 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
         title: 'Graphs',
         href: ROUTES.GRAPHS,
       })
-      // For existing graph editing - we'll fetch the actual name later
+      
+      // Get the actual graph name from the store
+      const graph = getGraphById(params.id)
+      const graphName = graph?.name || 'Untitled Graph'
+      
       items.push({
-        title: `Graph ${params.id}`,
+        title: graphName,
         isCurrentPage: true,
       })
     }
 
     return items
-  }, [location.pathname, params])
+  }, [location.pathname, params, getGraphById])
 
   return breadcrumbs
 }
