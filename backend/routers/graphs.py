@@ -3,6 +3,7 @@ Graph management router for CrewAI backend API.
 Provides CRUD operations for graphs and node definition structure metadata.
 """
 
+import uuid
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -135,8 +136,9 @@ async def create_graph(
         Created graph data
     """
     try:
-        # Create new graph
+        # Create new graph with UUID generation
         new_graph = Graph(
+            id=str(uuid.uuid4()),  # Generate UUID for the graph
             name=graph_data.get("name", "Untitled"),
             description=graph_data.get("description", ""),
             graph_data=graph_data.get("graph_data", {}),
