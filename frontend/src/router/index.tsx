@@ -7,6 +7,7 @@ import { GraphsPage } from '@/pages/Graphs';
 import { DashboardPage } from '@/pages/Dashboard';
 import { GraphEditorPage } from '@/pages/GraphEditor';
 import { AppLayout } from '@/layouts/AppLayout';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { graphsLoader, graphLoader } from './loaders';
 
 const router = createBrowserRouter([
@@ -17,6 +18,7 @@ const router = createBrowserRouter([
         <AppLayout />
       </ProtectedRoute>
     ),
+    errorElement: <ErrorBoundary />,
     children: [
       {
         index: true,
@@ -25,18 +27,21 @@ const router = createBrowserRouter([
       {
         path: "graphs",
         element: <GraphsPage />,
-        loader: graphsLoader
+        loader: graphsLoader,
+        errorElement: <ErrorBoundary />
       },
       {
         path: "graphs/:id",
         element: <GraphEditorPage />,
-        loader: graphLoader
+        loader: graphLoader,
+        errorElement: <ErrorBoundary />
       }
     ]
   },
   {
     path: "/auth",
     element: <AuthLayout />,
+    errorElement: <ErrorBoundary />,
     children: [
       {
         path: "login",

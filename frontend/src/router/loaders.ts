@@ -26,7 +26,7 @@ export const graphsLoader: LoaderFunction = async (): Promise<GraphsLoaderData> 
 // Loader for individual graph page
 export const graphLoader: LoaderFunction = async ({ params }): Promise<GraphLoaderData> => {
   const { id } = params;
-  
+
   if (!id) {
     throw new Response('Graph ID is required', { status: 400 });
   }
@@ -38,4 +38,4 @@ export const graphLoader: LoaderFunction = async ({ params }): Promise<GraphLoad
     console.error('Failed to load graph:', error);
     throw new Response('Graph not found', { status: 404 });
   }
-}; 
+};
