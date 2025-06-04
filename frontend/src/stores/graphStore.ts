@@ -269,8 +269,8 @@ const useGraphStore = create<GraphStoreState>()(
         return duplicatedGraph;
       } catch (error: unknown) {
         const axiosError = error as { response?: { data?: { detail?: string; message?: string } } };
-        const errorMessage = axiosError.response?.data?.detail || 
-                           axiosError.response?.data?.message || 
+        const errorMessage = axiosError.response?.data?.detail ||
+                           axiosError.response?.data?.message ||
                            'Failed to duplicate graph. Please try again.';
         
         set({
