@@ -27,8 +27,8 @@ This document lists all tasks associated with PBI-002.
 | 2-17 | [Theme System](mdc:./tasks/PBI-002-17.md) | Done | Add dark/light mode theme system |
 | 2-18 | [Layout State Management](mdc:./tasks/PBI-002-18.md) | Done | Manage layout state (sidebar toggle, theme) |
 | 2-19 | [Graph Store and CRUD](mdc:./tasks/PBI-002-19.md) | Done | Create Zustand store for graph management |
-| 2-20 | [Graph List View](mdc:./tasks/PBI-002-20.md) | Proposed | Build graph list component with CRUD operations |
-| 2-21 | [Graph Creation and Editing](mdc:./tasks/PBI-002-21.md) | Proposed | Create graph forms for metadata management |
+| 2-20 | [Graph List View](mdc:./tasks/PBI-002-20.md) | Done | Build graph list component with CRUD operations |
+| 2-21 | [Graph Creation and Editing](mdc:./tasks/PBI-002-21.md) | InProgress | Create graph forms for metadata management |
 | 2-22 | [Graph Deletion](mdc:./tasks/PBI-002-22.md) | Proposed | Implement graph deletion with confirmation |
 | 2-23 | [Graph Metadata Management](mdc:./tasks/PBI-002-23.md) | Proposed | Handle graph name, description, and settings |
 | 2-24 | [Graph API Integration](mdc:./tasks/PBI-002-24.md) | Proposed | Connect graph store to backend API |
