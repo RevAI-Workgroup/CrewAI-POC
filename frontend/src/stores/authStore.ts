@@ -1,21 +1,21 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import axios from 'axios';
+import apiClient from '@/services/api';
+import { setAuthCookie, getAuthCookie, clearAuthCookie } from '@/utils/cookies';
 import type {
   LoginRequest,
   LoginResponse,
   RegisterRequest,
   RegisterResponse,
-  RefreshTokenRequest,
+  User,
 } from '../types/auth.types';
+import { API_ROUTES } from '@/config/api';
 
-interface User {
-  id: string;
-  pseudo: string;
-  role: 'user' | 'admin';
-  created_at: string;
-  updated_at: string;
-  last_login?: string;
+interface AuthData {
+  user: User;
+  accessToken: string;
+  refreshToken: string;
+  tokenExpiresAt: Date;
 }
 
 interface AuthStoreState {
@@ -23,21 +23,26 @@ interface AuthStoreState {
   user: User | null;
   accessToken: string | null;
   refreshToken: string | null;
+  tokenExpiresAt: Date | null;
+  
   isAuthenticated: boolean;
   isLoading: boolean;
+  isInitializing: boolean;
   error: string | null;
 
   // Actions
-  register: (pseudo: string) => Promise<string>;
+  register: (pseudo: string) => Promise<{ passphrase: string; authData: AuthData }>;
   login: (passphrase: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshTokens: () => Promise<void>;
   clearError: () => void;
   setLoading: (loading: boolean) => void;
+  completeRegistration: (authData: AuthData) => void;
   
   // Internal utilities
-  setTokens: (accessToken: string, refreshToken: string) => void;
   setUser: (user: User) => void;
+  isTokenValid: () => boolean;
+  initializeAuth: () => void;
 }
 
 const useAuthStore = create<AuthStoreState>()(
@@ -46,18 +51,20 @@ const useAuthStore = create<AuthStoreState>()(
     user: null,
     accessToken: null,
     refreshToken: null,
+    tokenExpiresAt: null,
     isAuthenticated: false,
     isLoading: false,
+    isInitializing: true,
     error: null,
 
     // Actions
-    register: async (pseudo: string): Promise<string> => {
+    register: async (pseudo: string): Promise<{ passphrase: string; authData: AuthData }> => {
       set({ isLoading: true, error: null });
       
       try {
         const requestData: RegisterRequest = { pseudo };
-        const response = await axios.post<RegisterResponse>(
-          '/api/auth/register',
+        const response = await apiClient.post<RegisterResponse>(
+          API_ROUTES.AUTH.REGISTER,
           requestData
         );
 
@@ -67,13 +74,17 @@ const useAuthStore = create<AuthStoreState>()(
           role,
           created_at,
           updated_at,
+          passphrase,
           access_token,
           refresh_token,
-          passphrase,
+          expires_in,
         } = response.data;
 
-        // Store tokens and user data
-        set({
+        // Calculate token expiration time
+        const expiresAt = new Date(Date.now() + expires_in * 1000);
+        
+        // Prepare auth data but don't store it yet
+        const authData: AuthData = {
           user: {
             id,
             pseudo: userPseudo,
@@ -83,16 +94,20 @@ const useAuthStore = create<AuthStoreState>()(
           },
           accessToken: access_token,
           refreshToken: refresh_token,
-          isAuthenticated: true,
+          tokenExpiresAt: expiresAt,
+        };
+
+        set({
           isLoading: false,
           error: null,
         });
 
-        // Return passphrase for user to save
-        return passphrase;
-      } catch (error: any) {
-        const errorMessage = error.response?.data?.detail || 
-                           error.response?.data?.message || 
+        // Return passphrase and auth data (don't auto-login)
+        return { passphrase, authData };
+      } catch (error: unknown) {
+        const axiosError = error as { response?: { data?: { detail?: string; message?: string } } };
+        const errorMessage = axiosError.response?.data?.detail || 
+                           axiosError.response?.data?.message || 
                            'Registration failed. Please try again.';
         
         set({
@@ -105,82 +120,140 @@ const useAuthStore = create<AuthStoreState>()(
       }
     },
 
+    completeRegistration: (authData: AuthData) => {
+      // Store auth data in encrypted cookie and update state
+      setAuthCookie(
+        authData.accessToken,
+        authData.refreshToken,
+        authData.tokenExpiresAt,
+        authData.user
+      );
+
+      set({
+        user: authData.user,
+        accessToken: authData.accessToken,
+        refreshToken: authData.refreshToken,
+        tokenExpiresAt: authData.tokenExpiresAt,
+        isAuthenticated: true,
+        isInitializing: false,
+        error: null,
+      });
+    },
+
     login: async (passphrase: string): Promise<void> => {
       set({ isLoading: true, error: null });
       
       try {
         const requestData: LoginRequest = { passphrase };
-        const response = await axios.post<LoginResponse>(
-          '/api/auth/login',
+        const response = await apiClient.post<LoginResponse>(
+          API_ROUTES.AUTH.LOGIN,
           requestData
         );
 
-        const { user, access_token, refresh_token } = response.data;
-
+        // Store user data and tokens from the response
+        const { user, access_token, refresh_token, expires_in } = response.data;
+        
+        // Calculate token expiration time
+        const expiresAt = new Date(Date.now() + expires_in * 1000);
+        
+        // Store in encrypted cookie for persistence
+        setAuthCookie(access_token, refresh_token, expiresAt, user);
+        
         set({
-          user,
+          user: {
+            id: user.id,
+            pseudo: user.pseudo,
+            role: user.role,
+            created_at: user.created_at,
+            updated_at: user.updated_at,
+            last_login: user.last_login,
+          },
           accessToken: access_token,
           refreshToken: refresh_token,
+          tokenExpiresAt: expiresAt,
           isAuthenticated: true,
           isLoading: false,
+          isInitializing: false,
           error: null,
         });
-      } catch (error: any) {
-        const errorMessage = error.response?.data?.detail || 
-                           error.response?.data?.message || 
+      } catch (error: unknown) {
+        const axiosError = error as { response?: { data?: { detail?: string; message?: string } } };
+        const errorMessage = axiosError.response?.data?.detail ||
+                           axiosError.response?.data?.message ||
                            'Invalid passphrase. Please check your passphrase and try again.';
         
         set({
           error: errorMessage,
           isLoading: false,
           isAuthenticated: false,
+          isInitializing: false,
           user: null,
           accessToken: null,
           refreshToken: null,
+          tokenExpiresAt: null,
         });
         
         throw new Error(errorMessage);
       }
     },
 
-    logout: () => {
-      set({
-        user: null,
-        accessToken: null,
-        refreshToken: null,
-        isAuthenticated: false,
-        error: null,
-      });
+    logout: async (): Promise<void> => {
+      try {
+        // Call logout endpoint to clear server-side session
+        await apiClient.post(API_ROUTES.AUTH.LOGOUT);
+      } catch (error) {
+        console.error('Logout failed:', error);
+      } finally {
+        // Clear encrypted cookie
+        clearAuthCookie();
+        
+        // Clear local state regardless of API call success
+        set({
+          user: null,
+          accessToken: null,
+          refreshToken: null,
+          tokenExpiresAt: null,
+          isAuthenticated: false,
+          isInitializing: false,
+          error: null,
+        });
+      }
     },
 
     refreshTokens: async (): Promise<void> => {
-      const { refreshToken } = get();
-      
-      if (!refreshToken) {
-        throw new Error('No refresh token available');
-      }
-
       try {
-        const requestData: RefreshTokenRequest = { 
-          refresh_token: refreshToken 
-        };
-        
-        const response = await axios.post<LoginResponse>(
-          '/api/auth/refresh',
-          requestData
+        const response = await apiClient.post<LoginResponse>(
+          API_ROUTES.AUTH.REFRESH
         );
 
-        const { access_token, refresh_token } = response.data;
+        // Store updated user data and tokens from the refresh response
+        const { user, access_token, refresh_token, expires_in } = response.data;
+        
+        // Calculate token expiration time
+        const expiresAt = new Date(Date.now() + expires_in * 1000);
+        
+        // Update encrypted cookie
+        setAuthCookie(access_token, refresh_token, expiresAt, user);
 
         set({
+          user: {
+            id: user.id,
+            pseudo: user.pseudo,
+            role: user.role,
+            created_at: user.created_at,
+            updated_at: user.updated_at,
+            last_login: user.last_login,
+          },
           accessToken: access_token,
           refreshToken: refresh_token,
+          tokenExpiresAt: expiresAt,
+          isAuthenticated: true,
           error: null,
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Refresh failed, logout user
         console.error('Token refresh failed:', error);
-        get().logout();
+        await get().logout();
         throw new Error('Session expired. Please log in again.');
       }
     },
@@ -190,47 +263,54 @@ const useAuthStore = create<AuthStoreState>()(
     setLoading: (isLoading: boolean) => set({ isLoading }),
 
     // Internal utilities
-    setTokens: (accessToken: string, refreshToken: string) => {
-      set({ accessToken, refreshToken });
-    },
-
     setUser: (user: User) => {
       set({ user, isAuthenticated: true });
     },
-  }))
-);
 
-// Set up automatic token refresh before expiration
-useAuthStore.subscribe(
-  (state) => state.accessToken,
-  (accessToken) => {
-    if (accessToken) {
+    isTokenValid: (): boolean => {
+      const { tokenExpiresAt } = get();
+      if (!tokenExpiresAt) return false;
+      return new Date() < tokenExpiresAt;
+    },
+
+    initializeAuth: () => {
       try {
-        // Decode JWT to get expiration time
-        const payload = JSON.parse(atob(accessToken.split('.')[1]));
-        const expiresAt = payload.exp * 1000; // Convert to milliseconds
-        const now = Date.now();
-        const refreshBuffer = 60000; // Refresh 1 minute before expiration
-        const timeUntilRefresh = expiresAt - now - refreshBuffer;
+        const { user, accessToken, refreshToken, tokenExpiresAt } = getAuthCookie();
 
-        if (timeUntilRefresh > 0) {
-          setTimeout(() => {
-            const currentState = useAuthStore.getState();
-            if (currentState.isAuthenticated && currentState.refreshToken) {
-              currentState.refreshTokens().catch((error) => {
-                console.error('Automatic token refresh failed:', error);
-              });
-            }
-          }, timeUntilRefresh);
+        if (user && accessToken && refreshToken && tokenExpiresAt) {
+          // Check if token is still valid
+          if (new Date() < tokenExpiresAt) {
+            set({
+              user: user as User,
+              accessToken,
+              refreshToken,
+              tokenExpiresAt,
+              isAuthenticated: true,
+              isInitializing: false,
+              error: null,
+            });
+          } else {
+            // Token expired, try to refresh
+            get().refreshTokens().catch(() => {
+              // If refresh fails, clear stored data and complete initialization
+              get().logout();
+            }).finally(() => {
+              set({ isInitializing: false });
+            });
+          }
+        } else {
+          // No auth data found, complete initialization
+          set({ isInitializing: false });
         }
       } catch (error) {
-        console.error('Failed to parse access token for auto-refresh:', error);
+        console.error('Failed to initialize auth:', error);
+        // Clear potentially corrupted data and complete initialization
+        get().logout();
       }
-    }
-  }
-);
+    },
 
-export default useAuthStore;
+  }))
+);
 
 // Export convenience functions for use outside React components
 export const login = (passphrase: string) => 
@@ -245,5 +325,4 @@ export const logout = () =>
 export const refreshTokens = () => 
   useAuthStore.getState().refreshTokens();
 
-export const clearAuthError = () => 
-  useAuthStore.getState().clearError(); 
+export default useAuthStore; 

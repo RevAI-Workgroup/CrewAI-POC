@@ -4,10 +4,6 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { resolve } from 'path'
 
-import { loadEnv } from 'vite';
-
-const env = loadEnv(process.env.NODE_ENV as string, process.cwd(), 'VITE_');
-
 // https://vite.dev/config/
 export default defineConfig({ 
   resolve: {
@@ -48,7 +44,7 @@ export default defineConfig({
     port: 5173,
     host: true,
     proxy: {
-      '/api': {
+      /* '/api': {
         target: env.VITE_API_BASE_URL,
         changeOrigin: true,
         secure: false,
@@ -63,7 +59,7 @@ export default defineConfig({
             console.log('Proxy response:', proxyRes.statusCode, req.url);
           });
         },
-      },
+      }, */
       '/ws': {
         target: 'ws://localhost:8000',
         ws: true,

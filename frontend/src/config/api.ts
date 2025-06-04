@@ -13,23 +13,22 @@ export const apiConfig = {
 // API Endpoints
 export const API_ROUTES = {
   AUTH: {
-    REGISTER: '/auth/register',
-    LOGIN: '/auth/login',
-    REFRESH: '/auth/refresh',
-    LOGOUT: '/auth/logout',
-    ME: '/auth/me',
+    REGISTER: '/api/auth/register',
+    LOGIN: '/api/auth/login',
+    REFRESH: '/api/auth/refresh',
+    LOGOUT: '/api/auth/logout',
   },
   GRAPHS: {
-    LIST: '/graphs',
-    CREATE: '/graphs',
-    GET: (id: string) => `/graphs/${id}`,
-    UPDATE: (id: string) => `/graphs/${id}`,
-    DELETE: (id: string) => `/graphs/${id}`,
-    DUPLICATE: (id: string) => `/graphs/${id}/duplicate`,
+    LIST: '/api/graphs',
+    CREATE: '/api/graphs',
+    GET: (id: string) => `/api/graphs/${id}`,
+    UPDATE: (id: string) => `/api/graphs/${id}`,
+    DELETE: (id: string) => `/api/graphs/${id}`,
+    DUPLICATE: (id: string) => `/api/graphs/${id}/duplicate`,
   },
   NODES: {
-    DEFINITIONS: '/graph-nodes',
-    VALIDATE: '/graph-nodes/validate',
+    DEFINITIONS: '/api/graph-nodes',
+    VALIDATE: '/api/graph-nodes/validate',
   },
   WEBSOCKET: {
     GRAPHS: '/ws/graphs',

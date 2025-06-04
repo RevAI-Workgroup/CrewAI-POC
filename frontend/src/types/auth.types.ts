@@ -24,22 +24,24 @@ export interface LoginResponse {
   refresh_token: string;
   token_type: 'bearer';
   expires_in: number;
-  user: {
-    id: string;
-    pseudo: string;
-    role: 'user' | 'admin';
-    created_at: string;
-    updated_at: string;
-    last_login?: string;
-  };
+  user: User;
 }
 
 export interface RefreshTokenRequest {
   refresh_token: string;
 }
 
+export interface User {
+  id: string;
+  pseudo: string;
+  role: 'user' | 'admin';
+  created_at: string;
+  updated_at: string;
+  last_login?: string;
+}
+
 export interface AuthState {
-  user: LoginResponse['user'] | null;
+  user: User | null;
   tokens: {
     access_token: string;
     refresh_token: string;

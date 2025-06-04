@@ -13,7 +13,6 @@ export const useAuth = () => {
       isAuthenticated: state.isAuthenticated,
       isLoading: state.isLoading,
       error: state.error,
-      accessToken: state.accessToken,
     }))
   );
 
@@ -35,7 +34,6 @@ export const useAuth = () => {
     isAuthenticated: authState.isAuthenticated,
     isLoading: authState.isLoading,
     error: authState.error,
-    accessToken: authState.accessToken,
     
     // Computed values
     userPseudo: authState.user?.pseudo,
