@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from typing import Optional, Union
 from jose import JWTError, jwt
 from fastapi import HTTPException, status
+from xkcdpass import xkcd_password as xp
 
 # JWT configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
@@ -15,27 +16,18 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 
-# Word lists for passphrase generation
-WORD_LIST = [
-    "apple", "banana", "cherry", "dragon", "elephant", "forest", "garden", "harbor",
-    "island", "jungle", "kitten", "laptop", "mountain", "notebook", "ocean", "piano",
-    "quartz", "rabbit", "sunset", "thunder", "umbrella", "violet", "whisper", "xylophone",
-    "yellow", "zephyr", "anchor", "bridge", "castle", "dream", "eagle", "flame",
-    "glacier", "harmony", "indigo", "jasper", "kaleidoscope", "lighthouse", "meadow", "nebula",
-    "opal", "phoenix", "quantum", "river", "starlight", "tornado", "universe", "voyage",
-    "waterfall", "xenon", "yearning", "zodiac", "backstage", "epileptic", "wimp", "petunia",
-    "outpost", "undergrad", "crystal", "meadow", "journey", "horizon", "cascade", "twilight",
-    "breeze", "compass", "destiny", "echoes", "frontier", "guardian", "horizon", "illusion",
-    "labyrinth", "mirage", "odyssey", "prism", "sanctuary", "tempest", "vision", "wanderer"
-]
 
 def generate_passphrase() -> str:
     """
     Generate a unique passphrase in format: word-word-word-word-word-word
     Returns 6 random words separated by hyphens
     """
-    words = random.sample(WORD_LIST, 6)
-    return "-".join(words)
+    
+    wordfile = xp.locate_wordfile(wordfile="./wordlist.txt")
+    wordlist = xp.generate_wordlist(wordfile=wordfile, min_length=6, max_length=8)
+    mywords = xp.generate_xkcdpassword(wordlist=wordlist, numwords=6, interactive=False, delimiter="-", case="lower", acrostic=False)
+    
+    return str(mywords)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """
