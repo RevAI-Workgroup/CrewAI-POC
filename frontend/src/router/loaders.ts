@@ -1,6 +1,6 @@
 import type { LoaderFunction } from 'react-router-dom';
-import { fetchGraphs, fetchGraphById } from '@/stores/graphStore';
-import type { Graph } from '@/types/graph.types';
+import { fetchGraphs, fetchGraphById, fetchGraphsNodes } from '@/stores/graphStore';
+import type { Graph, NodeDefinitions } from '@/types/graph.types';
 
 export interface GraphsLoaderData {
   graphs: Graph[];
@@ -8,6 +8,7 @@ export interface GraphsLoaderData {
 
 export interface GraphLoaderData {
   graph: Graph;
+  nodeDefinitions: NodeDefinitions;
 }
 
 // Loader for the graphs list page
@@ -32,8 +33,11 @@ export const graphLoader: LoaderFunction = async ({ params }): Promise<GraphLoad
   }
 
   try {
-    const graph = await fetchGraphById(id);
-    return { graph };
+    const graphPromise = fetchGraphById(id);
+    const nodeDefinitionsPromise = fetchGraphsNodes();
+    
+    const [graph, nodeDefinitions] = await Promise.all([graphPromise, nodeDefinitionsPromise]);
+    return { graph, nodeDefinitions };
   } catch (error) {
     console.error('Failed to load graph:', error);
     throw new Response('Graph not found', { status: 404 });

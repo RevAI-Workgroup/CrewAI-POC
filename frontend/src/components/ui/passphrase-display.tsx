@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Button } from './button';
-import { Copy, Check, Clipboard } from 'lucide-react';
+import { Check, Clipboard } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 

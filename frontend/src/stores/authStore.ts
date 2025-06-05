@@ -200,12 +200,10 @@ const useAuthStore = create<AuthStoreState>()(
     logout: async (): Promise<void> => {
       try {
         // Call logout endpoint to clear server-side session
-        await apiClient.post(API_ROUTES.AUTH.LOGOUT);
+        clearAuthCookie();
       } catch (error) {
         console.error('Logout failed:', error);
       } finally {
-        // Clear encrypted cookie
-        clearAuthCookie();
         
         // Clear local state regardless of API call success
         set({
@@ -223,7 +221,9 @@ const useAuthStore = create<AuthStoreState>()(
     refreshTokens: async (): Promise<void> => {
       try {
         const response = await apiClient.post<LoginResponse>(
-          API_ROUTES.AUTH.REFRESH
+          API_ROUTES.AUTH.REFRESH, {
+            refresh_token: get().refreshToken,
+          }
         );
 
         // Store updated user data and tokens from the refresh response

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import apiClient from '@/services/api';
 import { API_ROUTES } from '@/config/api';
-import type { Graph } from '@/types/graph.types';
+import type { Graph, NodeDefinitions } from '@/types/graph.types';
 
 
 interface FetchGraphsResponse {
@@ -16,6 +16,11 @@ interface GetGraphResponse {
   success: boolean
 }
 
+interface GetNodesDefinitionsResponse {
+  success: boolean
+  data: NodeDefinitions
+}
+
 interface CreateGraphResponse {
   success:boolean
   message: string
@@ -25,6 +30,7 @@ interface CreateGraphResponse {
 interface GraphStoreState {
   // State
   graphs: FetchGraphsResponse;
+  nodeDef: NodeDefinitions;
   selectedGraph: Graph | null;
   
   // Loading states
@@ -38,6 +44,7 @@ interface GraphStoreState {
 
   // Actions
   fetchGraphs: () => Promise<void>;
+  fetchGraphsNodes: () => Promise<NodeDefinitions>
   fetchGraphById: (id: string) => Promise<Graph>;
   createGraph: () => Promise<Graph>;
   updateGraph: (id: string, data: Partial<Graph>) => Promise<void>;
@@ -61,6 +68,16 @@ const useGraphStore = create<GraphStoreState>()(
       data: [],
       success: true,
     },
+    nodeDef: {
+      categories: [],
+      node_types: {},
+      connection_constraints: {},
+      enums: {
+        process_types: [],
+        output_formats: [],
+        llm_providers: []
+      }
+    },
     selectedGraph: null,
     isLoading: false,
     isCreating: false,
@@ -73,7 +90,11 @@ const useGraphStore = create<GraphStoreState>()(
       set({ isLoading: true, error: null });
       
       try {
-        const response = await apiClient.get<FetchGraphsResponse>(API_ROUTES.GRAPHS.LIST);
+        const response = await apiClient.get<FetchGraphsResponse>(API_ROUTES.GRAPHS.LIST, {
+          cache: {
+            ttl: 1000 * 60 * 2
+          }
+        });
 
         set({
           graphs: response.data,
@@ -95,11 +116,53 @@ const useGraphStore = create<GraphStoreState>()(
       }
     },
 
+    fetchGraphsNodes: async (): Promise<NodeDefinitions> => {
+      
+
+      set({ isLoading: true, error: null });
+
+      try {
+        const response = await apiClient.get<GetNodesDefinitionsResponse>(API_ROUTES.NODES.DEFINITIONS, {
+          cache: {
+            ttl: 1000 * 60 * 15
+          }
+        });
+        if(!response.data.success) {
+          throw new Error("Error fetching nodes definitions");
+        }
+
+        const nodeDef = response.data.data;
+        console.log("Node def", nodeDef)
+        set({
+          nodeDef,
+          isLoading: false,
+          error: null,
+        });
+
+        return nodeDef
+
+      } catch (error: unknown) {
+        const axiosError = error as { response?: { data?: { detail?: string; message?: string } } };
+        const errorMessage = axiosError.response?.data?.detail || 
+                           axiosError.response?.data?.message || 
+                           'Failed to fetch graph nodes. Please try again.';
+
+        set({
+          error: errorMessage,
+          isLoading: false,
+        });
+
+        throw new Error(errorMessage);
+      }
+    },
+
     fetchGraphById: async (id: string): Promise<Graph> => {
       set({ isLoading: true, error: null });
       
       try {
-        const response = await apiClient.get<GetGraphResponse>(API_ROUTES.GRAPHS.GET(id));
+        const response = await apiClient.get<GetGraphResponse>(API_ROUTES.GRAPHS.GET(id), {
+          cache: false
+        });
         const graph = response.data.data;
 
         // Update local store with the fetched graph if it's not already there
@@ -152,7 +215,9 @@ const useGraphStore = create<GraphStoreState>()(
       try {
         // Send POST request with empty body as requested
         const requestBody = {};
-        const response = await apiClient.post<CreateGraphResponse>(API_ROUTES.GRAPHS.CREATE, requestBody);
+        const response = await apiClient.post<CreateGraphResponse>(API_ROUTES.GRAPHS.CREATE, requestBody, {
+          cache: false
+        });
         
         const newGraph = response.data;
         
@@ -316,3 +381,4 @@ export const setSelectedGraph = (graph: Graph | null) =>
   useGraphStore.getState().setSelectedGraph(graph);
 export const getGraphById = (id: string) => useGraphStore.getState().getGraphById(id);
 export const clearGraphError = () => useGraphStore.getState().clearError(); 
+export const fetchGraphsNodes = () => useGraphStore.getState().fetchGraphsNodes();

@@ -44,8 +44,8 @@ export default defineConfig({
     port: 5173,
     host: true,
     proxy: {
-      /* '/api': {
-        target: env.VITE_API_BASE_URL,
+      '/api': {
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
         configure: (proxy, options) => {
@@ -59,7 +59,7 @@ export default defineConfig({
             console.log('Proxy response:', proxyRes.statusCode, req.url);
           });
         },
-      }, */
+      },
       '/ws': {
         target: 'ws://localhost:8000',
         ws: true,

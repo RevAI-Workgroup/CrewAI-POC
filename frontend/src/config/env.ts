@@ -32,9 +32,20 @@ const getNumberEnvVar = (key: string, defaultValue?: number): number => {
   return parsed;
 };
 
+// Get default API base URL based on environment
+const getDefaultApiBaseUrl = (): string => {
+  const appEnv = getEnvVar('VITE_APP_ENV', 'development');
+  // In development, use relative URL for Vite proxy to work
+  if (appEnv === 'development') {
+    return '';  // Empty string means relative URLs, proxy will handle it
+  }
+  // In production/staging, use absolute URL
+  return 'http://localhost:8000';
+};
+
 // Validate and export environment configuration
 export const env: EnvConfig = {
-  API_BASE_URL: getEnvVar('VITE_API_BASE_URL', 'http://localhost:8000'),
+  API_BASE_URL: getEnvVar('VITE_API_BASE_URL', getDefaultApiBaseUrl()),
   API_TIMEOUT: getNumberEnvVar('VITE_API_TIMEOUT', 30000),
   APP_ENV: getEnvVar('VITE_APP_ENV', 'development') as EnvConfig['APP_ENV'],
   ENABLE_DEVTOOLS: getBooleanEnvVar('VITE_ENABLE_DEVTOOLS', true),

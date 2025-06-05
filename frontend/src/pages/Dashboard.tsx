@@ -1,6 +1,6 @@
 export function DashboardPage() {
   return (
-    <div className='space-y-6'>
+    <>
       <h1 className='text-3xl font-bold'>Dashboard</h1>
       <div className='grid gap-6 md:grid-cols-2 lg:grid-cols-3'>
         <div className='border rounded-lg p-6'>
@@ -16,6 +16,6 @@ export function DashboardPage() {
           </p>
         </div>
       </div>
-    </div>
+    </>
   );
 }

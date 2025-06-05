@@ -3,13 +3,18 @@ import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'a
 import { apiConfig, TIMEOUTS } from '@/config/api';
 import { getAuthCookie } from '@/utils/cookies';
 
+import { setupCache } from 'axios-cache-interceptor';
+
 // Create axios instance with base configuration
-export const apiClient: AxiosInstance = axios.create({
+const instance: AxiosInstance = axios.create({
   baseURL: apiConfig.baseURL,
   timeout: apiConfig.timeout,
   headers: apiConfig.headers,
   withCredentials: true, // Enable cookies for auth
+
 });
+
+export const apiClient = setupCache(instance);
 
 // Request interceptor to add tokens to all requests
 apiClient.interceptors.request.use(

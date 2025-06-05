@@ -68,7 +68,7 @@ export function GraphsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <>
       <GraphsHeader onCreateGraph={handleCreateGraph} isCreating={isCreating} />
       
       <GraphGrid
@@ -81,6 +81,6 @@ export function GraphsPage() {
         onDuplicate={handleDuplicateGraph}
         onCreateGraph={handleCreateGraph}
       />
-    </div>
+    </>
   );
 }

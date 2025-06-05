@@ -27,7 +27,7 @@ export const API_ROUTES = {
     DUPLICATE: (id: string) => `/api/graphs/${id}/duplicate`,
   },
   NODES: {
-    DEFINITIONS: '/api/graph-nodes',
+    DEFINITIONS: '/api/graphs/nodes',
     VALIDATE: '/api/graph-nodes/validate',
   },
   WEBSOCKET: {
