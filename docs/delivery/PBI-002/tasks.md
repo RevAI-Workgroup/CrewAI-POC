@@ -28,18 +28,18 @@ This document lists all tasks associated with PBI-002.
 | 2-18 | [Layout State Management](mdc:./tasks/PBI-002-18.md) | Done | Manage layout state (sidebar toggle, theme) |
 | 2-19 | [Graph Store and CRUD](mdc:./tasks/PBI-002-19.md) | Done | Create Zustand store for graph management |
 | 2-20 | [Graph List View](mdc:./tasks/PBI-002-20.md) | Done | Build graph list component with CRUD operations |
-| 2-21 | [Graph Creation and Editing](mdc:./tasks/PBI-002-21.md) | InProgress | Create graph forms for metadata management |
-| 2-22 | [Graph Deletion](mdc:./tasks/PBI-002-22.md) | Proposed | Implement graph deletion with confirmation |
-| 2-23 | [Graph Metadata Management](mdc:./tasks/PBI-002-23.md) | Proposed | Handle graph name, description, and settings |
-| 2-24 | [Graph API Integration](mdc:./tasks/PBI-002-24.md) | Proposed | Connect graph store to backend API |
-| 2-25 | [React Flow Setup](mdc:./tasks/PBI-002-25.md) | Proposed | Configure React Flow for graph editing |
-| 2-26 | [Node Definitions Integration](mdc:./tasks/PBI-002-26.md) | Proposed | Fetch and integrate node definitions from backend |
-| 2-27 | [Basic Node Types](mdc:./tasks/PBI-002-27.md) | Proposed | Implement Crew, Agent, Task, and LLM node types |
-| 2-28 | [Node Creation and Deletion](mdc:./tasks/PBI-002-28.md) | Proposed | Add/remove nodes in graph canvas |
-| 2-29 | [Edge Connections](mdc:./tasks/PBI-002-29.md) | Proposed | Implement node connections with validation |
-| 2-30 | [Graph Canvas Controls](mdc:./tasks/PBI-002-30.md) | Proposed | Add zoom, pan, and selection controls |
-| 2-31 | [Node Property Panels](mdc:./tasks/PBI-002-31.md) | Proposed | Create dynamic forms for node configuration |
-| 2-32 | [Field Visibility System](mdc:./tasks/PBI-002-32.md) | Proposed | Implement dynamic field visibility based on selections |
+| 2-21 | [Graph Creation and Editing](mdc:./tasks/PBI-002-21.md) | Done | Create graph forms for metadata management |
+| 2-22 | [Graph Deletion](mdc:./tasks/PBI-002-22.md) | Done | Implement graph deletion with confirmation |
+| 2-23 | [Graph Metadata Management](mdc:./tasks/PBI-002-23.md) | Done | Handle graph name, description, and settings |
+| 2-24 | [Graph API Integration](mdc:./tasks/PBI-002-24.md) | Done | Connect graph store to backend API |
+| 2-25 | [React Flow Setup](mdc:./tasks/PBI-002-25.md) | Done | Configure React Flow for graph editing |
+| 2-26 | [Node Definitions Integration](mdc:./tasks/PBI-002-26.md) | Done | Fetch and integrate node definitions from backend |
+| 2-27 | [Basic Node Types](mdc:./tasks/PBI-002-27.md) | Done | Implement Crew, Agent, Task, and LLM node types |
+| 2-28 | [Node Creation and Deletion](mdc:./tasks/PBI-002-28.md) | Done | Add/remove nodes in graph canvas |
+| 2-29 | [Edge Connections](mdc:./tasks/PBI-002-29.md) | Done | Implement node connections with validation |
+| 2-30 | [Graph Canvas Controls](mdc:./tasks/PBI-002-30.md) | Done | Add zoom, pan, and selection controls |
+| 2-31 | [Node Property Panels](mdc:./tasks/PBI-002-31.md) | Done | Create dynamic forms for node configuration |
+| 2-32 | [Field Visibility System](mdc:./tasks/PBI-002-32.md) | Done | Implement dynamic field visibility based on selections |
 | 2-33 | [Node Validation](mdc:./tasks/PBI-002-33.md) | Proposed | Add real-time validation and error display |
 | 2-34 | [Real-time Synchronization](mdc:./tasks/PBI-002-34.md) | Proposed | Sync graph changes with backend in real-time |
 | 2-35 | [Undo/Redo Functionality](mdc:./tasks/PBI-002-35.md) | Proposed | Implement graph editing history |

@@ -1,13 +1,20 @@
-import React, { useCallback } from 'react';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import React, { useCallback, useMemo } from 'react';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
 import { Form } from '@/components/ui/form';
 import type { NodeTypeDefinition, FieldDefinition } from '@/types';
 import { type UseFormReturn } from 'react-hook-form';
+
+// Import field components
+import {
+  StringField,
+  TextAreaField,
+  NumberField,
+  BooleanField,
+  SelectField,
+  MultiSelectField,
+  SliderField,
+  JsonField
+} from './fields';
 
 interface NodeFormProps {
   nodeDefinition: NodeTypeDefinition;
@@ -19,6 +26,19 @@ interface NodeFormProps {
   fieldVisibility?: Record<string, boolean>;
 }
 
+// Field component mapping for better maintainability
+const fieldComponents = {
+  string: StringField,
+  password: StringField,
+  text: TextAreaField,
+  number: NumberField,
+  boolean: BooleanField,
+  select: SelectField,
+  multi_select: MultiSelectField,
+  slider: SliderField,
+  json: JsonField,
+} as const;
+
 const NodeForm: React.FC<NodeFormProps> = ({
   nodeDefinition,
   localFormData,
@@ -28,23 +48,54 @@ const NodeForm: React.FC<NodeFormProps> = ({
   renderInputHandle,
   fieldVisibility
 }) => {
-  // Sort fields by display_order and filter by visibility
-  const sortedFields = Object.entries(nodeDefinition.fields)
-    .filter(([fieldName, field]) => {
-      // For fields that are visible by default, always show them
-      if (field.show_by_default) {
-        return true;
-      }
-      
-      // For fields that are hidden by default, only show them if explicitly made visible
-      const isVisible = fieldVisibility ? fieldVisibility[fieldName] === true : false;
-      return isVisible;
-    })
-    .sort(([, a], [, b]) => a.display_order - b.display_order);
+  // Memoize sorted and filtered fields for performance
+  const sortedFields = useMemo(() => {
+    return Object.entries(nodeDefinition.fields)
+      .filter(([fieldName, field]) => {
+        // For fields that are visible by default, always show them
+        if (field.show_by_default) {
+          return true;
+        }
+        
+        // For fields that are hidden by default, only show them if explicitly made visible
+        return fieldVisibility?.[fieldName] === true;
+      })
+      .sort(([, a], [, b]) => a.display_order - b.display_order);
+  }, [nodeDefinition.fields, fieldVisibility]);
+
+  // Get default value for a field
+  const getFieldValue = useCallback((fieldName: string, field: FieldDefinition) => {
+    const currentValue = localFormData[fieldName];
+    
+    if (currentValue !== undefined && currentValue !== null) {
+      return currentValue;
+    }
+    
+    if (field.default !== undefined) {
+      return field.default;
+    }
+    
+    // Return appropriate default based on field type
+    switch (field.type) {
+      case 'select':
+        return field.options?.[0]?.value || '';
+      case 'multi_select':
+        return [];
+      case 'boolean':
+        return false;
+      case 'number':
+      case 'slider':
+        return field.validation?.min || 0;
+      case 'json':
+        return {};
+      default:
+        return '';
+    }
+  }, [localFormData]);
 
   // Render field component based on type
   const renderField = useCallback((fieldName: string, field: FieldDefinition) => {
-    const value = localFormData[fieldName] ?? field.default ?? (field.type === 'select' ? field.options?.[0]?.value : '');
+    const value = getFieldValue(fieldName, field);
     const hasHandle = fieldNeedsHandle(field);
 
     // Don't render input component if field has a handle
@@ -52,160 +103,37 @@ const NodeForm: React.FC<NodeFormProps> = ({
       return renderInputHandle(fieldName, field);
     }
 
-    const fieldComponent = (() => {
-      switch (field.type) {
-        case 'string':
-        case 'password':
-          return (
-            <Input
-              type={field.type === 'password' ? 'password' : 'text'}
-              placeholder={field.placeholder}
-              value={value}
-              onChange={(e) => onFormChange(fieldName, e.target.value)}
-            />
-          );
-
-        case 'text':
-          return (
-            <Textarea
-              placeholder={field.placeholder}
-              value={value}
-              onChange={(e) => onFormChange(fieldName, e.target.value)}
-              rows={3}
-            />
-          );
-
-        case 'number':
-          return (
-            <Input
-              type="number"
-              placeholder={field.placeholder}
-              value={value}
-              onChange={(e) => onFormChange(fieldName, parseFloat(e.target.value) || 0)}
-              min={field.validation?.min}
-              max={field.validation?.max}
-            />
-          );
-
-        case 'boolean':
-          return (
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                checked={Boolean(value)}
-                onCheckedChange={(checked) => onFormChange(fieldName, checked)}
-              />
-              <Label className="text-sm">{field.label}</Label>
-            </div>
-          );
-
-        case 'select':
-          return (
-            <Select
-              value={value}
-              onValueChange={(value) => onFormChange(fieldName, value)}
-
-            >
-              <SelectTrigger className='w-full' id={fieldName}>
-                <SelectValue placeholder={`Select a ${fieldName}`} />
-              </SelectTrigger>
-              <SelectContent>
-                {field.options?.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          );
-
-        case 'multi_select':
-          return (
-            <div className="space-y-2">
-              {field.options?.map((option) => (
-                <div key={option.value} className="flex items-center space-x-2">
-                  <Checkbox
-                    checked={(value || []).includes(option.value)}
-                    onCheckedChange={(checked) => {
-                      const currentValues = value || [];
-                      const newValues = checked
-                        ? [...currentValues, option.value]
-                        : currentValues.filter((v: string) => v !== option.value);
-                      onFormChange(fieldName, newValues);
-                    }}
-                  />
-                  <Label className="text-sm">{option.label}</Label>
-                </div>
-              ))}
-            </div>
-          );
-
-        case 'slider':
-          return (
-            <div className="space-y-2">
-              <Slider
-                value={[value || field.validation?.min || 0]}
-                onValueChange={(values) => onFormChange(fieldName, values[0])}
-                min={field.validation?.min || 0}
-                max={field.validation?.max || 100}
-                step={field.validation?.step || 1}
-                className="w-full"
-              />
-              <div className="text-xs text-muted-foreground text-center">
-                {value || field.validation?.min || 0}
-              </div>
-            </div>
-          );
-
-        case 'json':
-          return (
-            <Textarea
-              placeholder={field.placeholder || 'Enter JSON...'}
-              value={typeof value === 'string' ? value : JSON.stringify(value, null, 2)}
-              onChange={(e) => {
-                try {
-                  const parsed = JSON.parse(e.target.value);
-                  onFormChange(fieldName, parsed);
-                } catch {
-                  onFormChange(fieldName, e.target.value);
-                }
-              }}
-              rows={4}
-              className="font-mono text-sm"
-            />
-          );
-
-        default:
-          return (
-            <Input
-              placeholder={field.placeholder}
-              value={value}
-              onChange={(e) => onFormChange(fieldName, e.target.value)}
-            />
-          );
-      }
-    })();
+    // Get the appropriate field component
+    const FieldComponent = fieldComponents[field.type as keyof typeof fieldComponents] || StringField;
 
     return (
       <div key={fieldName} className="space-y-2 px-4">
         {field.type !== 'boolean' && (
-          <Label className="">
+          <Label htmlFor={fieldName} className="text-sm font-medium">
             {field.label}
             {field.required && <span className="text-red-500 ml-1">*</span>}
           </Label>
         )}
         
-        {fieldComponent}
+        <FieldComponent
+          fieldName={fieldName}
+          field={field}
+          value={value}
+          onFormChange={onFormChange}
+        />
         
         {field.description && (
           <p className="text-xs text-muted-foreground">{field.description}</p>
         )}
       </div>
     );
-  }, [localFormData, fieldNeedsHandle, onFormChange, renderInputHandle]);
+  }, [getFieldValue, fieldNeedsHandle, onFormChange, renderInputHandle]);
 
   return (
     <Form {...form}>
-      {sortedFields.map(([fieldName, field]) => renderField(fieldName, field))}
+      <div className="space-y-4">
+        {sortedFields.map(([fieldName, field]) => renderField(fieldName, field))}
+      </div>
     </Form>
   );
 };
