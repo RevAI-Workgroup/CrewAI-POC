@@ -74,7 +74,7 @@ class NodeDefinitionService:
         return {
             "name": "Crew",
             "description": "A collection of agents working together on tasks",
-            "icon": "crew",
+            "icon": "users",
             "color": "#4F46E5",
             "category": "core",
             "fields": {
@@ -171,7 +171,7 @@ class NodeDefinitionService:
         return {
             "name": "Agent",
             "description": "An AI agent with specific role and capabilities",
-            "icon": "agent",
+            "icon": "bot",
             "color": "#059669",
             "category": "core",
             "fields": {
@@ -267,7 +267,7 @@ class NodeDefinitionService:
         return {
             "name": "Task",
             "description": "A specific task to be completed by an agent",
-            "icon": "task",
+            "icon": "list-check",
             "color": "#DC2626",
             "category": "core",
             "fields": {
@@ -311,15 +311,6 @@ class NodeDefinitionService:
     def _get_common_llm_fields() -> Dict[str, Any]:
         """Get common fields for all LLM providers."""
         return {
-            "name": {
-                "type": "string",
-                "label": "Model Name",
-                "required": True,
-                "default": "My LLM",
-                "placeholder": "Enter model name",
-                "display_order": 1,
-                "show_by_default": True
-            },
             "model": {
                 "type": "select",
                 "label": "Model",
@@ -506,12 +497,12 @@ class NodeDefinitionService:
         }
         
         providers["google"] = {
-            "name": "Google AI",
+            "name": "Gemini",
             "description": "Google Gemini models",
-            "icon": "google",
+            "icon": "gemini",
             "color": "#4285F4",
             "category": "llm",
-            "provider": "google",
+            "provider": "gemini",
             "fields": google_fields
         }
         
@@ -584,7 +575,7 @@ class NodeDefinitionService:
         return {
             "name": "Tool",
             "description": "External tool or custom function",
-            "icon": "tool",
+            "icon": "hammer",
             "color": "#EA580C",
             "category": "tools",
             "fields": {
@@ -652,7 +643,7 @@ class NodeDefinitionService:
         return {
             "name": "Flow Control",
             "description": "Control workflow execution flow",
-            "icon": "flow",
+            "icon": "workflow",
             "color": "#0891B2",
             "category": "control",
             "fields": {
