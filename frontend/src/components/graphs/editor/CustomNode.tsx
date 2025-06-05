@@ -53,17 +53,13 @@ const CustomNode: React.FC<CustomNodeProps> = ({ data, selected, id }) => {
     defaultValues: localFormData,
   });
 
-  // Debounced save function
+  // Debounced save function - now just updates node data directly
   const debouncedFormData = useDebounce(localFormData, 500);
 
-  // Save to localStorage and update node data
+  // Update node data (which will trigger sync via FlowEditor)
   useEffect(() => {
     if (debouncedFormData && Object.keys(debouncedFormData).length > 0) {
-      // Save to localStorage
-      const storageKey = `node_${id}_data`;
-      localStorage.setItem(storageKey, JSON.stringify(debouncedFormData));
-
-      // Update node data
+      // Update node data directly - sync handled by parent
       setNodes((nodes) =>
         nodes.map((node) =>
           node.id === id
@@ -74,20 +70,13 @@ const CustomNode: React.FC<CustomNodeProps> = ({ data, selected, id }) => {
     }
   }, [debouncedFormData, id, setNodes]);
 
-  // Load from localStorage on mount
+  // Initialize form data from node data (not localStorage)
   useEffect(() => {
-    const storageKey = `node_${id}_data`;
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      try {
-        const parsedData = JSON.parse(saved);
-        setLocalFormData(parsedData);
-        form.reset(parsedData);
-      } catch (error) {
-        console.error('Error loading saved data:', error);
-      }
+    if (data.formData) {
+      setLocalFormData(data.formData);
+      form.reset(data.formData);
     }
-  }, [id, form]);
+  }, [data.formData, form]);
 
   // Handle background click to clear selection
   const handleBackgroundClick = useCallback((e: React.MouseEvent) => {
@@ -205,9 +194,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({ data, selected, id }) => {
 
   const handleDelete = useCallback(() => {
     deleteElements({ nodes: [{ id }] });
-    // Clean up localStorage
-    const storageKey = `node_${id}_data`;
-    localStorage.removeItem(storageKey);
+    // Node data is now handled by backend sync, no localStorage cleanup needed
   }, [deleteElements, id]);
 
   const handleSettings = useCallback(() => {

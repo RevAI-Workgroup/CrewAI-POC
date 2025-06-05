@@ -35,6 +35,15 @@ export const KeyboardShortcutsProvider = ({ children }: KeyboardShortcutsProvide
   } = useReactFlow();
   const nodes = useNodes();
   const edges = useEdges();
+  
+  // Import history hooks for undo/redo
+  const historyStore = React.useMemo(() => {
+    try {
+      return require('@/stores/historyStore').default();
+    } catch {
+      return null;
+    }
+  }, []);
 
   // Memoize selected nodes and edges to prevent infinite re-renders
   const selectedNodes = useMemo(() => nodes.filter(node => node.selected), [nodes]);

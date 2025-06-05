@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useState, useCallback } from 'react';
+import React, { useRef, useMemo, useState, useCallback, useEffect } from 'react';
 import {
   Background,
   Controls,
@@ -13,6 +13,8 @@ import {
   type Connection,
   type NodeTypes,
   type EdgeTypes,
+  type OnNodesChange,
+  type OnEdgesChange,
 } from '@xyflow/react';
 import '@xyflow/react/dist/base.css';
 
@@ -26,11 +28,16 @@ import ShortcutsButton from './ShortcutsButton';
 import ConnectionLine from './ConnectionLine';
 import CustomEdge from './CustomEdge';
 import ConnectionDropDialog from './ConnectionDropDialog';
+import EditorToolbar from './EditorToolbar';
 
 // Import custom hooks
 import { useConnectionHandler } from './ConnectionHandler';
 import { useDragDropHandler } from './DragDropHandler';
 import { useNodeTypeSelector } from './NodeTypeSelector';
+import { useGraphSync } from '@/hooks/useGraphSync';
+import { useGraphHistory } from '@/hooks/useGraphHistory';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import type { HistoryOperation } from '@/types/history.types';
 
 const proOptions = { hideAttribution: true };
 
@@ -39,6 +46,7 @@ const FlowEditor: React.FC = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const { clearSelection } = useHandleSelection();
+  const historySuppressionRef = useRef(false);
 
   // Connection drop dialog state
   const [showConnectionDialog, setShowConnectionDialog] = useState(false);
@@ -51,7 +59,106 @@ const FlowEditor: React.FC = () => {
   } | null>(null);
 
   const { theme } = useTheme();
-  const { nodeDef } = useGraphStore();
+  const { nodeDef, selectedGraph } = useGraphStore();
+
+  // Initialize sync and history hooks
+  const { syncGraph, forceSyncGraph, loadGraphData, syncStatus } = useGraphSync({
+    graphId: selectedGraph?.id || '',
+    debounceMs: 2000,
+    enableSync: !!selectedGraph?.id
+  });
+
+  const {
+    canUndo,
+    canRedo,
+    addHistoryState,
+    undoOperation,
+    redoOperation,
+    initializeHistory,
+    getUndoTooltip,
+    getRedoTooltip
+  } = useGraphHistory({
+    onStateRestore: (historyNodes, historyEdges) => {
+      historySuppressionRef.current = true;
+      setNodes(historyNodes);
+      setEdges(historyEdges);
+      // Force sync after undo/redo
+      forceSyncGraph(historyNodes, historyEdges);
+      setTimeout(() => {
+        historySuppressionRef.current = false;
+      }, 100);
+    },
+    onHistoryChange: (operation, historyOperation) => {
+      console.log(`${operation}: ${historyOperation}`);
+    }
+  });
+
+  // Add keyboard shortcuts for undo/redo
+  useKeyboardShortcuts({
+    onUndo: undoOperation,
+    onRedo: redoOperation,
+    canUndo,
+    canRedo
+  });
+
+  // Load initial graph data
+  useEffect(() => {
+    if (selectedGraph) {
+      const { nodes: initialNodes, edges: initialEdges } = loadGraphData({
+        nodes: selectedGraph.nodes || [],
+        edges: selectedGraph.edges || []
+      });
+      setNodes(initialNodes);
+      setEdges(initialEdges);
+      initializeHistory(initialNodes, initialEdges);
+    }
+  }, [selectedGraph?.id, loadGraphData, setNodes, setEdges, initializeHistory]);
+
+  // Sync changes to backend (with history tracking)
+  useEffect(() => {
+    if (!historySuppressionRef.current && nodes.length > 0) {
+      syncGraph(nodes, edges);
+    }
+  }, [nodes, edges, syncGraph]);
+
+  // Enhanced nodes change handler with history tracking
+  const handleNodesChange: OnNodesChange = useCallback((changes) => {
+    onNodesChange(changes);
+    
+    if (!historySuppressionRef.current) {
+      // Determine operation type from changes
+      const hasNewNodes = changes.some(change => change.type === 'add');
+      const hasRemovedNodes = changes.some(change => change.type === 'remove');
+      const hasPositionChanges = changes.some(change => change.type === 'position' && change.position);
+      
+      // Add to history based on change type
+      setTimeout(() => {
+        let operation: HistoryOperation = 'update_node';
+        if (hasNewNodes) operation = 'create_node';
+        else if (hasRemovedNodes) operation = 'delete_node';
+        else if (hasPositionChanges) operation = 'move_node';
+        
+        addHistoryState(nodes, edges, operation);
+      }, 50); // Small delay to ensure state is updated
+    }
+  }, [onNodesChange, nodes, edges, addHistoryState]);
+
+  // Enhanced edges change handler with history tracking
+  const handleEdgesChange: OnEdgesChange = useCallback((changes) => {
+    onEdgesChange(changes);
+    
+    if (!historySuppressionRef.current) {
+      // Determine operation type from changes
+      const hasNewEdges = changes.some(change => change.type === 'add');
+      const hasRemovedEdges = changes.some(change => change.type === 'remove');
+      
+      // Add to history based on change type
+      setTimeout(() => {
+        const operation: HistoryOperation = hasNewEdges ? 'create_edge' : hasRemovedEdges ? 'delete_edge' : 'update_node';
+        addHistoryState(nodes, edges, operation);
+      }, 50); // Small delay to ensure state is updated
+    }
+  }, [onEdgesChange, nodes, edges, addHistoryState]);
 
   // Use custom hooks for separated concerns
   const { onConnectStart, onConnectEnd, isValidConnection, getCompatibleNodeTypes } = useConnectionHandler({
@@ -116,6 +223,21 @@ const FlowEditor: React.FC = () => {
 
   return (
     <div className="flex w-full h-full relative" id="flow-editor">
+      {/* Editor Toolbar */}
+      <EditorToolbar
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={undoOperation}
+        onRedo={redoOperation}
+        undoTooltip={getUndoTooltip()}
+        redoTooltip={getRedoTooltip()}
+        isSyncing={syncStatus.isSyncing}
+        lastSyncedAt={syncStatus.lastSyncedAt}
+        syncError={syncStatus.error}
+        pendingChanges={syncStatus.pendingChanges}
+        className="absolute top-4 left-4 z-10"
+      />
+
       {/* Keyboard Shortcuts Button */}
       <ShortcutsButton />
 
@@ -137,8 +259,8 @@ const FlowEditor: React.FC = () => {
         <ReactFlow
           nodes={nodes}
           edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
+          onNodesChange={handleNodesChange}
+          onEdgesChange={handleEdgesChange}
           onConnect={onConnect}
           onConnectStart={onConnectStart}
           onConnectEnd={onConnectEnd}
