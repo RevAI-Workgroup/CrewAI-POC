@@ -153,6 +153,23 @@ export function useGraphHistory({
     return 'Redo next action';
   }, [canRedo, currentIndex, history, getOperationDescription]);
   
+  // Combined history and sync operation
+  const addHistoryStateWithSync = useCallback((
+    nodes: Node[], 
+    edges: Edge[], 
+    operation: HistoryOperation, 
+    description?: string,
+    syncFn?: (nodes: Node[], edges: Edge[]) => void
+  ) => {
+    // Add to history first
+    addHistoryState(nodes, edges, operation, description);
+    
+    // Then sync if provided
+    if (syncFn) {
+      syncFn(nodes, edges);
+    }
+  }, [addHistoryState]);
+
   return {
     // State
     canUndo,
@@ -162,6 +179,7 @@ export function useGraphHistory({
     
     // Actions
     addHistoryState,
+    addHistoryStateWithSync,
     undoOperation,
     redoOperation,
     clearHistory,

@@ -72,6 +72,7 @@ const FlowEditor: React.FC = () => {
     canUndo,
     canRedo,
     addHistoryState,
+    addHistoryStateWithSync,
     undoOperation,
     redoOperation,
     initializeHistory,
@@ -114,14 +115,7 @@ const FlowEditor: React.FC = () => {
     }
   }, [selectedGraph?.id, loadGraphData, setNodes, setEdges, initializeHistory]);
 
-  // Sync changes to backend (with history tracking)
-  useEffect(() => {
-    if (!historySuppressionRef.current && nodes.length > 0) {
-      syncGraph(nodes, edges);
-    }
-  }, [nodes, edges, syncGraph]);
-
-  // Enhanced nodes change handler with history tracking
+  // Enhanced nodes change handler with coordinated history and sync
   const handleNodesChange: OnNodesChange = useCallback((changes) => {
     onNodesChange(changes);
     
@@ -131,19 +125,26 @@ const FlowEditor: React.FC = () => {
       const hasRemovedNodes = changes.some(change => change.type === 'remove');
       const hasPositionChanges = changes.some(change => change.type === 'position' && change.position);
       
-      // Add to history based on change type
-      setTimeout(() => {
-        let operation: HistoryOperation = 'update_node';
-        if (hasNewNodes) operation = 'create_node';
-        else if (hasRemovedNodes) operation = 'delete_node';
-        else if (hasPositionChanges) operation = 'move_node';
-        
-        addHistoryState(nodes, edges, operation);
-      }, 50); // Small delay to ensure state is updated
+              // Coordinate history and sync together
+        setTimeout(() => {
+          let operation: HistoryOperation = 'update_node';
+          if (hasNewNodes) operation = 'create_node';
+          else if (hasRemovedNodes) operation = 'delete_node';
+          else if (hasPositionChanges) operation = 'move_node';
+          
+          // Add to history first, then sync to backend
+          addHistoryStateWithSync(
+            nodes, 
+            edges, 
+            operation, 
+            undefined, 
+            nodes.length > 0 ? syncGraph : undefined
+          );
+        }, 50); // Small delay to ensure state is updated
     }
-  }, [onNodesChange, nodes, edges, addHistoryState]);
+    }, [onNodesChange, nodes, edges, addHistoryStateWithSync, syncGraph]);
 
-  // Enhanced edges change handler with history tracking
+  // Enhanced edges change handler with coordinated history and sync
   const handleEdgesChange: OnEdgesChange = useCallback((changes) => {
     onEdgesChange(changes);
     
@@ -152,13 +153,21 @@ const FlowEditor: React.FC = () => {
       const hasNewEdges = changes.some(change => change.type === 'add');
       const hasRemovedEdges = changes.some(change => change.type === 'remove');
       
-      // Add to history based on change type
+      // Coordinate history and sync together
       setTimeout(() => {
         const operation: HistoryOperation = hasNewEdges ? 'create_edge' : hasRemovedEdges ? 'delete_edge' : 'update_node';
-        addHistoryState(nodes, edges, operation);
+        
+        // Add to history first, then sync to backend
+        addHistoryStateWithSync(
+          nodes, 
+          edges, 
+          operation, 
+          undefined, 
+          nodes.length > 0 ? syncGraph : undefined
+        );
       }, 50); // Small delay to ensure state is updated
     }
-  }, [onEdgesChange, nodes, edges, addHistoryState]);
+  }, [onEdgesChange, nodes, edges, addHistoryStateWithSync, syncGraph]);
 
   // Use custom hooks for separated concerns
   const { onConnectStart, onConnectEnd, isValidConnection, getCompatibleNodeTypes } = useConnectionHandler({
