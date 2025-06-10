@@ -85,6 +85,8 @@ const useGraphStore = create<GraphStoreState>()(
     isDeleting: false,
     error: null,
 
+
+
     // Actions
     fetchGraphs: async (): Promise<void> => {
       set({ isLoading: true, error: null });
@@ -251,19 +253,20 @@ const useGraphStore = create<GraphStoreState>()(
       set({ isUpdating: true, error: null });
       
       try {
-        const response = await apiClient.put<Graph>(API_ROUTES.GRAPHS.UPDATE(id), data);
+        const response = await apiClient.put<CreateGraphResponse>(API_ROUTES.GRAPHS.UPDATE(id), data);
         
         const updatedGraph = response.data;
+
         
         // Update local state
         set((state) => ({
           graphs: {
             ...state.graphs,
             data: state.graphs.data.map((graph) => 
-              graph.id === id ? updatedGraph : graph
+              graph.id === id ? updatedGraph.data : graph
             ),
           },
-          selectedGraph: state.selectedGraph?.id === id ? updatedGraph : state.selectedGraph,
+          selectedGraph: state.selectedGraph?.id === id ? updatedGraph.data : state.selectedGraph,
           isUpdating: false,
           error: null,
         }));

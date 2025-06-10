@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useReactFlow, type NodeProps } from '@xyflow/react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { DynamicIcon } from '@/components/DynamicIcon';
@@ -9,6 +9,7 @@ import { useHandleSelection, type HandleInfo } from '@/contexts/HandleSelectionP
 import { cn } from '@/lib/utils';
 import type { NodeTypeDefinition, FieldDefinition } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
+import { initializeMissingDefaults } from '@/utils/nodeDefaults';
 
 // Import new components
 import NodeForm from './NodeForm';
@@ -20,6 +21,7 @@ interface CustomNodeData {
   label: string;
   type: string;
   formData?: Record<string, any>;
+  fieldVisibility?: Record<string, boolean>;
   [key: string]: unknown;
 }
 
@@ -63,20 +65,92 @@ const CustomNode: React.FC<CustomNodeProps> = ({ data, selected, id }) => {
       setNodes((nodes) =>
         nodes.map((node) =>
           node.id === id
-            ? { ...node, data: { ...node.data, formData: debouncedFormData } }
+            ? { 
+                ...node, 
+                data: { 
+                  ...node.data, 
+                  formData: debouncedFormData,
+                  // Remove autoInit flag when user makes real changes
+                  autoInit: undefined
+                } 
+              }
             : node
         )
       );
     }
   }, [debouncedFormData, id, setNodes]);
 
+  // Track if we've already initialized defaults for this node
+  const initializedRef = useRef(false);
+
   // Initialize form data from node data (not localStorage)
   useEffect(() => {
-    if (data.formData) {
-      setLocalFormData(data.formData);
-      form.reset(data.formData);
+    console.log(`🔄 CustomNode ${id} data changed:`, data);
+    
+    // Only run default initialization once when the node is first loaded or when nodeDefinition changes
+    if (!initializedRef.current && nodeDefinition && nodeDef) {
+      console.log(`🚀 First load for node ${id}, checking for missing defaults`);
+      
+      const { defaultFormData, defaultFieldVisibility } = initializeMissingDefaults(
+        data.type,
+        nodeDef,
+        data.formData,
+        data.fieldVisibility
+      );
+      
+      // Only update if there are actually missing defaults
+      const hasNewDefaults = Object.keys(defaultFormData || {}).length > 0;
+      const hasNewVisibility = Object.keys(defaultFieldVisibility || {}).length > 0;
+      
+      if (hasNewDefaults || hasNewVisibility) {
+        console.log(`🔧 Initializing missing defaults for node ${id}:`, { 
+          addedFormData: defaultFormData, 
+          addedFieldVisibility: defaultFieldVisibility 
+        });
+        
+        // Merge existing data with defaults
+        const mergedFormData = { ...defaultFormData, ...(data.formData || {}) };
+        const mergedFieldVisibility = { ...defaultFieldVisibility, ...(data.fieldVisibility || {}) };
+        
+        // Update the node with the merged data
+        setNodes((nodes) =>
+          nodes.map((node) =>
+            node.id === id
+              ? { 
+                  ...node, 
+                  data: { 
+                    ...node.data, 
+                    formData: mergedFormData,
+                    fieldVisibility: mergedFieldVisibility,
+                    // Mark as automatic initialization to prevent sync loop
+                    autoInit: true
+                  } 
+                }
+              : node
+          )
+        );
+      }
+      
+      initializedRef.current = true;
     }
-  }, [data.formData, form]);
+    
+    // Always update the local form state with current data
+    const currentFormData = data.formData || {};
+    if (Object.keys(currentFormData).length > 0) {
+      console.log(`📋 Loading form data for node ${id}:`, currentFormData);
+      setLocalFormData(currentFormData);
+      form.reset(currentFormData);
+    } else {
+      console.log(`⚠️ No form data found for node ${id}, initializing empty`);
+      setLocalFormData({});
+      form.reset({});
+    }
+  }, [data.formData, data.fieldVisibility, form, id, nodeDefinition, nodeDef, setNodes, data]);
+
+  // Reset initialization flag when node type changes
+  useEffect(() => {
+    initializedRef.current = false;
+  }, [data.type]);
 
   // Handle background click to clear selection
   const handleBackgroundClick = useCallback((e: React.MouseEvent) => {
@@ -88,11 +162,31 @@ const CustomNode: React.FC<CustomNodeProps> = ({ data, selected, id }) => {
 
   // Handle form changes
   const handleFormChange = useCallback((fieldName: string, value: any) => {
-    setLocalFormData((prev) => ({
-      ...prev,
-      [fieldName]: value,
-    }));
-  }, []);
+    if (fieldName === 'fieldVisibility') {
+      // Handle field visibility changes separately - update node data directly
+      setNodes((nodes) =>
+        nodes.map((node) =>
+          node.id === id
+            ? { 
+                ...node, 
+                data: { 
+                  ...node.data, 
+                  fieldVisibility: value,
+                  // Remove autoInit flag when user makes changes
+                  autoInit: undefined
+                } 
+              }
+            : node
+        )
+      );
+    } else {
+      // Handle regular form data changes
+      setLocalFormData((prev) => ({
+        ...prev,
+        [fieldName]: value,
+      }));
+    }
+  }, [id, setNodes]);
 
   // Check if field needs a handle
   const fieldNeedsHandle = useCallback((field: FieldDefinition): boolean => {
@@ -252,7 +346,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({ data, selected, id }) => {
             form={form}
             fieldNeedsHandle={fieldNeedsHandle}
             renderInputHandle={renderInputHandle}
-            fieldVisibility={localFormData.fieldVisibility}
+            fieldVisibility={data.fieldVisibility}
           />
         </CardContent>
 

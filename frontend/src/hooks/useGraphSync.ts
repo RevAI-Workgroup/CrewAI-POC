@@ -1,7 +1,8 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
 import type { Node, Edge } from '@xyflow/react';
 import { useGraphStore } from '@/stores';
-import { useDebounce } from './useDebounce';
+import { useDebouncedCallback } from 'use-debounce';
+import type { GraphNode } from '@/types/graph.types';
 
 interface UseGraphSyncOptions {
   graphId: string;
@@ -32,11 +33,8 @@ export function useGraphSync({
   const pendingSync = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null);
   const lastSyncedData = useRef<string>('');
   
-  // Track the current data that needs to be synced
-  const [currentData, setCurrentData] = useState<{ nodes: Node[]; edges: Edge[] } | null>(null);
-  
   // Debounced sync trigger
-  const debouncedSyncTrigger = useDebounce(
+  const debouncedSyncTrigger = useDebouncedCallback(
     useCallback(() => {
       if (pendingSync.current && enableSync) {
         performSync(pendingSync.current.nodes, pendingSync.current.edges);
@@ -47,15 +45,23 @@ export function useGraphSync({
   
   // Perform the actual sync to backend
   const performSync = useCallback(async (nodes: Node[], edges: Edge[]) => {
-    if (!graphId || !enableSync) return;
+    console.log('🚀 performSync called:', { graphId, enableSync, nodeCount: nodes.length, edgeCount: edges.length });
+    
+    if (!graphId || !enableSync) {
+      console.log('⚠️ performSync skipped:', { graphId, enableSync });
+      return;
+    }
     
     const dataString = JSON.stringify({ nodes, edges });
     
     // Skip if data hasn't changed since last sync
     if (dataString === lastSyncedData.current) {
+      console.log('⚠️ No changes detected, skipping sync');
       setSyncStatus(prev => ({ ...prev, pendingChanges: false }));
       return;
     }
+    
+    console.log('📡 Making API call to updateGraph...');
     
     setSyncStatus(prev => ({ 
       ...prev, 
@@ -65,27 +71,64 @@ export function useGraphSync({
     }));
     
     try {
-      await updateGraph(graphId, {
-        graph_data: {
-          nodes,
-          edges,
-          metadata: {
-            lastModified: new Date().toISOString(),
-            version: Date.now()
-          }
-        }
-      });
-      
-      lastSyncedData.current = dataString;
-      setSyncStatus(prev => ({
-        ...prev,
-        isSyncing: false,
-        lastSyncedAt: new Date(),
-        error: null
-      }));
+
+        // Convert nodes and edges to GraphNode and GraphEdge with complete form data
+        const graphNodes = nodes.map(node => {
+            console.log(`📝 Syncing node ${node.id} with data:`, node.data);
+            
+            return {
+                id: node.id,
+                type: node.type as GraphNode['type'],
+                position: node.position,
+                data: {
+                    ...node.data,
+                    // Ensure formData is preserved and up-to-date
+                    formData: node.data.formData || {},
+                    // Include any other node-specific data
+                    label: node.data.label || node.type,
+                    // Preserve visibility settings
+                    fieldVisibility: node.data.fieldVisibility || {},
+                    // Include metadata for better tracking
+                    lastModified: new Date().toISOString()
+                }
+            };
+        });
+
+        const graphEdges = edges.map(edge => ({
+            id: edge.id,
+            source: edge.source,
+            target: edge.target,
+            type: edge.type || 'default',
+            data: edge.data || {}
+        }));
+
+        const updatePayload = {
+            graph_data: {
+                nodes: graphNodes,
+                edges: graphEdges,
+                metadata: {
+                    lastModified: new Date().toISOString(),
+                    version: Date.now()
+                }
+            }
+        };
+        
+        console.log('📤 API payload:', updatePayload);
+        
+        await updateGraph(graphId, updatePayload);
+        
+        console.log('✅ Graph synced successfully');
+        
+        lastSyncedData.current = dataString;
+        setSyncStatus(prev => ({
+            ...prev,
+            isSyncing: false,
+            lastSyncedAt: new Date(),
+            error: null
+        }));
       
     } catch (error) {
-      console.error('Failed to sync graph:', error);
+      console.error('❌ Failed to sync graph:', error);
       setSyncStatus(prev => ({
         ...prev,
         isSyncing: false,
@@ -96,13 +139,23 @@ export function useGraphSync({
   
   // Main sync function called by components
   const syncGraph = useCallback((nodes: Node[], edges: Edge[]) => {
-    if (!enableSync || !graphId) return;
+    console.log('🔄 syncGraph called:', { enableSync, graphId, nodeCount: nodes.length, edgeCount: edges.length });
+    
+    if (!enableSync || !graphId) {
+      console.log('⚠️ Sync skipped:', { 
+        enableSync, 
+        graphId,
+        reason: !enableSync ? 'Sync disabled (no valid graph selected)' : 'Missing graph ID'
+      });
+      return;
+    }
     
     // Update pending sync data
     pendingSync.current = { nodes, edges };
-    setCurrentData({ nodes, edges });
     
     setSyncStatus(prev => ({ ...prev, pendingChanges: true }));
+    
+    console.log('⏱️ Triggering debounced sync (2s delay)');
     
     // Trigger debounced sync
     debouncedSyncTrigger();
@@ -118,12 +171,65 @@ export function useGraphSync({
     await performSync(nodes, edges);
   }, [graphId, enableSync, performSync]);
   
-  // Load initial graph data
+  // Load initial graph data and populate nodes/edges from graph_data
   const loadGraphData = useCallback((graphData: any) => {
-    if (!graphData) return { nodes: [], edges: [] };
+    console.log('📥 Loading graph data:', graphData);
     
-    const nodes = graphData.nodes || [];
-    const edges = graphData.edges || [];
+    if (!graphData) {
+      console.log('⚠️ No graph data provided');
+      return { nodes: [], edges: [] };
+    }
+    
+    // Handle both direct nodes/edges and graph_data wrapper
+    let sourceNodes = [];
+    let sourceEdges = [];
+    
+    if (graphData.graph_data) {
+      // Backend format: { graph_data: { nodes: [...], edges: [...] } }
+      console.log('📦 Loading from graph_data wrapper');
+      sourceNodes = graphData.graph_data.nodes || [];
+      sourceEdges = graphData.graph_data.edges || [];
+    } else {
+      // Direct format: { nodes: [...], edges: [...] }
+      console.log('📦 Loading from direct nodes/edges');
+      sourceNodes = graphData.nodes || [];
+      sourceEdges = graphData.edges || [];
+    }
+    
+    // Transform nodes to ReactFlow format with proper data restoration
+    const nodes = sourceNodes.map((node: any) => {
+      console.log(`📝 Loading node ${node.id} with data:`, node.data);
+      
+      return {
+        id: node.id,
+        type: node.type,
+        position: node.position || { x: 0, y: 0 },
+        data: {
+          label: node.data?.label || node.type,
+          type: node.type,
+          // Restore form data with all field values
+          formData: node.data?.formData || {},
+          // Restore field visibility settings
+          fieldVisibility: node.data?.fieldVisibility || {},
+          // Preserve any other custom data
+          ...node.data
+        },
+        selected: false,
+        dragging: false
+      };
+    });
+    
+    // Transform edges to ReactFlow format
+    const edges = sourceEdges.map((edge: any) => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      type: edge.type || 'default',
+      data: edge.data || {},
+      selected: false
+    }));
+    
+    console.log(`✅ Loaded ${nodes.length} nodes and ${edges.length} edges`);
     
     // Store as last synced data to prevent immediate re-sync
     lastSyncedData.current = JSON.stringify({ nodes, edges });

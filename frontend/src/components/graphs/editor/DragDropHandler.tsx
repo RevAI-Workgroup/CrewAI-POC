@@ -4,6 +4,7 @@ import { useDnD } from '@/contexts/DnDProvider';
 import { useGraphStore } from '@/stores';
 import { v4 as uuidv4 } from 'uuid';
 import type { DragEvent } from 'react';
+import { initializeNodeDefaults } from '@/utils/nodeDefaults';
 
 interface DragDropHandlerProps {
   setNodes: (updater: (nodes: Node[]) => Node[]) => void;
@@ -11,8 +12,10 @@ interface DragDropHandlerProps {
 
 export const useDragDropHandler = ({ setNodes }: DragDropHandlerProps) => {
   const { screenToFlowPosition } = useReactFlow();
-  const { type, setType } = useDnD();
+  const { setType } = useDnD();
   const { nodeDef } = useGraphStore();
+
+
 
   const onDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -40,6 +43,10 @@ export const useDragDropHandler = ({ setNodes }: DragDropHandlerProps) => {
       });
 
       const nodeDefinition = nodeDef.node_types[draggedType];
+      
+      // Initialize default form data and field visibility
+      const { formData, fieldVisibility } = initializeNodeDefaults(draggedType, nodeDef);
+      
       const newNode: Node = {
         id: uuidv4(),
         type: draggedType,
@@ -47,7 +54,8 @@ export const useDragDropHandler = ({ setNodes }: DragDropHandlerProps) => {
         data: { 
           label: nodeDefinition.name,
           type: draggedType,
-          formData: {}
+          formData,
+          fieldVisibility
         },
       };
 

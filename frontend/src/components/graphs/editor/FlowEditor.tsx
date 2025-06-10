@@ -5,6 +5,7 @@ import {
   MiniMap,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   addEdge,
   ReactFlow,
   type Node,
@@ -41,10 +42,11 @@ import type { HistoryOperation } from '@/types/history.types';
 
 const proOptions = { hideAttribution: true };
 
-const FlowEditor: React.FC = () => {
+const FlowEditor = () => {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const { getNodes, getEdges } = useReactFlow();
   const { clearSelection } = useHandleSelection();
   const historySuppressionRef = useRef(false);
 
@@ -61,17 +63,19 @@ const FlowEditor: React.FC = () => {
   const { theme } = useTheme();
   const { nodeDef, selectedGraph } = useGraphStore();
 
-  // Initialize sync and history hooks
+  // Check if we have a valid graph to work with
+  const hasValidGraph = !!(selectedGraph && selectedGraph.id && selectedGraph.id.trim());
+
+  // Initialize sync and history hooks (always call hooks, but adjust parameters)
   const { syncGraph, forceSyncGraph, loadGraphData, syncStatus } = useGraphSync({
     graphId: selectedGraph?.id || '',
-    debounceMs: 2000,
-    enableSync: !!selectedGraph?.id
+    debounceMs: 1000,
+    enableSync: hasValidGraph
   });
 
   const {
     canUndo,
     canRedo,
-    addHistoryState,
     addHistoryStateWithSync,
     undoOperation,
     redoOperation,
@@ -102,72 +106,185 @@ const FlowEditor: React.FC = () => {
     canRedo
   });
 
-  // Load initial graph data
+  
+
+  // Load initial graph data from graph_data field
   useEffect(() => {
     if (selectedGraph) {
-      const { nodes: initialNodes, edges: initialEdges } = loadGraphData({
+      console.log('🎯 Loading graph:', selectedGraph.id, selectedGraph);
+      
+      // Use graph_data if available, fallback to direct nodes/edges for backward compatibility
+      const graphDataToLoad = selectedGraph.graph_data || {
         nodes: selectedGraph.nodes || [],
         edges: selectedGraph.edges || []
-      });
+      };
+      
+      const { nodes: initialNodes, edges: initialEdges } = loadGraphData(graphDataToLoad);
+      
+      console.log(`🎯 Setting ${initialNodes.length} nodes and ${initialEdges.length} edges`);
       setNodes(initialNodes);
       setEdges(initialEdges);
       initializeHistory(initialNodes, initialEdges);
     }
   }, [selectedGraph?.id, loadGraphData, setNodes, setEdges, initializeHistory]);
 
+  // Track node count to detect additions/removals
+  const nodeCountRef = useRef(0);
+  const lastMoveTimeRef = useRef(0);
+
   // Enhanced nodes change handler with coordinated history and sync
   const handleNodesChange: OnNodesChange = useCallback((changes) => {
+    console.log('📝 Nodes changed:', changes);
+    const oldNodeCount = nodeCountRef.current;
+    
     onNodesChange(changes);
     
     if (!historySuppressionRef.current) {
-      // Determine operation type from changes
-      const hasNewNodes = changes.some(change => change.type === 'add');
-      const hasRemovedNodes = changes.some(change => change.type === 'remove');
-      const hasPositionChanges = changes.some(change => change.type === 'position' && change.position);
-      
-              // Coordinate history and sync together
-        setTimeout(() => {
-          let operation: HistoryOperation = 'update_node';
-          if (hasNewNodes) operation = 'create_node';
-          else if (hasRemovedNodes) operation = 'delete_node';
-          else if (hasPositionChanges) operation = 'move_node';
+      // Use setTimeout to get updated node count and fresh state
+      setTimeout(() => {
+        // Get fresh node and edge state
+        const currentNodes = getNodes();
+        const currentEdges = getEdges();
+        const newNodeCount = currentNodes.length;
+        nodeCountRef.current = newNodeCount;
+        
+        // Determine operation type from changes and node count
+        const hasNewNodes = newNodeCount > oldNodeCount;
+        const hasRemovedNodes = newNodeCount < oldNodeCount;
+        const hasPositionChanges = changes.some(change => change.type === 'position' && change.position);
+        const hasDataChanges = changes.some(change => {
+          const isDataChange = change.type === 'replace' && 
+            change.item && 
+            'data' in change.item;
           
-          // Add to history first, then sync to backend
+          if (isDataChange) {
+            console.log('📝 Data change detected:', change);
+            
+            // Check if this is just automatic default initialization
+            const item = change.item as Node;
+            if (item.data?.autoInit) {
+              console.log('⚠️ Skipping sync for automatic default initialization');
+              return false; // Skip automatic default initialization
+            }
+          }
+          
+          return isDataChange;
+        });
+        
+        console.log('🔄 Processing changes:', { 
+          hasNewNodes, 
+          hasRemovedNodes, 
+          hasPositionChanges,
+          hasDataChanges,
+          oldCount: oldNodeCount,
+          newCount: newNodeCount,
+          changes 
+        });
+        
+        // Only proceed if there are actual changes we care about (ignore selection changes)
+        if (hasNewNodes || hasRemovedNodes || hasPositionChanges || hasDataChanges) {
+          let operation: HistoryOperation = 'update_node';
+          let shouldSync = true;
+          
+          if (hasNewNodes) {
+            operation = 'create_node';
+          } else if (hasRemovedNodes) {
+            operation = 'delete_node';
+          } else if (hasDataChanges) {
+            operation = 'update_node';
+            // Form data changes should sync immediately to preserve user input
+            console.log('💾 Form data changed, syncing immediately');
+          } else if (hasPositionChanges) {
+            operation = 'move_node';
+            // Debounce move operations - only sync after user stops moving for 1 second
+            const now = Date.now();
+            lastMoveTimeRef.current = now;
+            
+            setTimeout(() => {
+              // Only sync if this was the last move operation
+              if (lastMoveTimeRef.current === now) {
+                console.log('💾 Syncing final move position');
+                // Get fresh state for the delayed sync
+                const latestNodes = getNodes();
+                const latestEdges = getEdges();
+                syncGraph(latestNodes, latestEdges);
+              }
+            }, 1000);
+            
+            shouldSync = false; // Don't sync immediately for moves
+          }
+          
+          console.log('💾 Adding to history:', operation, shouldSync ? 'and syncing' : 'without immediate sync');
+          
+          // Add to history and optionally sync with fresh state
           addHistoryStateWithSync(
-            nodes, 
-            edges, 
+            currentNodes, 
+            currentEdges, 
             operation, 
             undefined, 
-            nodes.length > 0 ? syncGraph : undefined
+            shouldSync ? syncGraph : undefined
           );
-        }, 50); // Small delay to ensure state is updated
+        }
+      }, 10); // Small delay to ensure state is updated
     }
-    }, [onNodesChange, nodes, edges, addHistoryStateWithSync, syncGraph]);
+  }, [onNodesChange, getNodes, getEdges, addHistoryStateWithSync, syncGraph]);
 
   // Enhanced edges change handler with coordinated history and sync
   const handleEdgesChange: OnEdgesChange = useCallback((changes) => {
+    console.log('🔗 Edges changed:', changes);
+    
     onEdgesChange(changes);
     
     if (!historySuppressionRef.current) {
-      // Determine operation type from changes
-      const hasNewEdges = changes.some(change => change.type === 'add');
-      const hasRemovedEdges = changes.some(change => change.type === 'remove');
-      
-      // Coordinate history and sync together
+      // Use setTimeout to get updated edge state
       setTimeout(() => {
-        const operation: HistoryOperation = hasNewEdges ? 'create_edge' : hasRemovedEdges ? 'delete_edge' : 'update_node';
+        // Get fresh node and edge state
+        const currentNodes = getNodes();
+        const currentEdges = getEdges();
         
-        // Add to history first, then sync to backend
-        addHistoryStateWithSync(
-          nodes, 
-          edges, 
-          operation, 
-          undefined, 
-          nodes.length > 0 ? syncGraph : undefined
-        );
-      }, 50); // Small delay to ensure state is updated
+        console.log('🔗 Current edges after change:', currentEdges);
+        
+        // Determine operation type from changes
+        const hasNewEdges = changes.some(change => change.type === 'add');
+        const hasRemovedEdges = changes.some(change => change.type === 'remove');
+        const hasUpdatedEdges = changes.some(change => change.type === 'replace');
+        
+        console.log('🔄 Processing edge changes:', { 
+          hasNewEdges, 
+          hasRemovedEdges, 
+          hasUpdatedEdges,
+          totalEdges: currentEdges.length,
+          changes 
+        });
+        
+        // Proceed if there are actual changes we care about
+        if (hasNewEdges || hasRemovedEdges || hasUpdatedEdges) {
+          let operation: HistoryOperation = 'update_node';
+          
+          if (hasNewEdges) {
+            operation = 'create_edge';
+          } else if (hasRemovedEdges) {
+            operation = 'delete_edge';
+          } else if (hasUpdatedEdges) {
+            operation = 'update_node'; // Edge data updated
+          }
+          
+          console.log('💾 Adding edge change to history and syncing:', operation);
+          
+          // Add to history first, then sync to backend with fresh state
+          addHistoryStateWithSync(
+            currentNodes, 
+            currentEdges, 
+            operation, 
+            undefined, 
+            syncGraph // Always sync for edge changes
+          );
+        } else {
+          console.log('⚠️ No significant edge changes detected');
+        }
+      }, 10); // Small delay to ensure state is updated
     }
-  }, [onEdgesChange, nodes, edges, addHistoryStateWithSync, syncGraph]);
+  }, [onEdgesChange, getNodes, getEdges, addHistoryStateWithSync, syncGraph]);
 
   // Use custom hooks for separated concerns
   const { onConnectStart, onConnectEnd, isValidConnection, getCompatibleNodeTypes } = useConnectionHandler({
@@ -230,6 +347,24 @@ const FlowEditor: React.FC = () => {
     handleNodeTypeSelection(selectedNodeType, connectionDropPosition, draggedConnectionInfo);
   }, [handleNodeTypeSelection, connectionDropPosition, draggedConnectionInfo]);
 
+  // Show message if no graph is selected (after all hooks are called)
+  if (!hasValidGraph) {
+    return (
+      <div className="flex w-full h-full items-center justify-center">
+        <div className="text-center p-8 max-w-md">
+          <div className="text-6xl mb-4">📊</div>
+          <h2 className="text-2xl font-semibold mb-2">No Graph Selected</h2>
+          <p className="text-muted-foreground mb-4">
+            Please select a graph from the sidebar to start editing, or create a new graph.
+          </p>
+          <div className="text-sm text-muted-foreground">
+            The graph editor requires an active graph to enable saving and synchronization.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex w-full h-full relative" id="flow-editor">
       {/* Editor Toolbar */}
@@ -244,7 +379,7 @@ const FlowEditor: React.FC = () => {
         lastSyncedAt={syncStatus.lastSyncedAt}
         syncError={syncStatus.error}
         pendingChanges={syncStatus.pendingChanges}
-        className="absolute top-4 left-4 z-10"
+        className="absolute top-4 right-4 z-10"
       />
 
       {/* Keyboard Shortcuts Button */}

@@ -1,14 +1,15 @@
-import { useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { type Node, type Edge } from '@xyflow/react';
 import { useGraphStore } from '@/stores';
 import { v4 as uuidv4 } from 'uuid';
+import { initializeNodeDefaults } from '@/utils/nodeDefaults';
 
 interface NodeTypeSelectorProps {
-  setNodes: (updater: (nodes: Node[]) => Node[]) => void;
-  setEdges: (updater: (edges: Edge[]) => Edge[]) => void;
-  setShowConnectionDialog: (show: boolean) => void;
-  setConnectionDropPosition: (position: { x: number; y: number } | null) => void;
-  setDraggedConnectionInfo: (info: any) => void;
+  setNodes: React.Dispatch<React.SetStateAction<Node[]>>;
+  setEdges: React.Dispatch<React.SetStateAction<Edge[]>>;
+  setShowConnectionDialog: React.Dispatch<React.SetStateAction<boolean>>;
+  setConnectionDropPosition: React.Dispatch<React.SetStateAction<{ x: number; y: number } | null>>;
+  setDraggedConnectionInfo: React.Dispatch<React.SetStateAction<any>>;
 }
 
 export const useNodeTypeSelector = ({
@@ -19,6 +20,8 @@ export const useNodeTypeSelector = ({
   setDraggedConnectionInfo
 }: NodeTypeSelectorProps) => {
   const { nodeDef } = useGraphStore();
+
+
 
   // Handle node type selection from dialog
   const handleNodeTypeSelection = useCallback((
@@ -31,6 +34,9 @@ export const useNodeTypeSelector = ({
     const nodeDefinition = nodeDef.node_types[selectedNodeType];
     if (!nodeDefinition) return;
 
+    // Initialize default form data and field visibility
+    const { formData, fieldVisibility } = initializeNodeDefaults(selectedNodeType, nodeDef);
+
     // Create new node
     const newNodeId = uuidv4();
     const newNode: Node = {
@@ -40,7 +46,8 @@ export const useNodeTypeSelector = ({
       data: { 
         label: nodeDefinition.name,
         type: selectedNodeType,
-        formData: {}
+        formData,
+        fieldVisibility
       },
     };
 

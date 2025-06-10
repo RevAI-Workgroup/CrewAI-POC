@@ -4,6 +4,7 @@ Provides CRUD operations for graphs and node definition structure metadata.
 """
 
 import uuid
+import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -13,6 +14,9 @@ from models.user import User
 from schemas.nodes import GraphSchema
 from services.node_definitions import NodeDefinitionService
 from utils.dependencies import get_db, get_current_user
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["graphs"])
 
@@ -183,6 +187,9 @@ async def update_graph(
         Updated graph data
     """
     try:
+        logger.info(f"🔄 Updating graph {graph_id} for user {current_user.id}")
+        logger.debug(f"📦 Received graph_data keys: {list(graph_data.keys())}")
+        
         # Find existing graph
         graph = db.query(Graph).filter(
             Graph.id == graph_id,
@@ -190,6 +197,7 @@ async def update_graph(
         ).first()
 
         if not graph:
+            logger.warning(f"❌ Graph {graph_id} not found for user {current_user.id}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Graph not found"
@@ -198,24 +206,84 @@ async def update_graph(
         # Update graph fields
         if "name" in graph_data:
             graph.name = graph_data["name"]
+            logger.debug(f"📝 Updated graph name: {graph.name}")
         if "description" in graph_data:
             graph.description = graph_data["description"]
-        if "graph_data" in graph_data:
-            graph.graph_data = graph_data["graph_data"]
+            logger.debug(f"📝 Updated graph description")
         if "is_template" in graph_data:
             graph.is_template = graph_data["is_template"]
+            logger.debug(f"📝 Updated is_template: {graph.is_template}")
+        
+        # Handle both old format (graph_data wrapper) and new format (direct nodes/edges)
+        if "graph_data" in graph_data:
+            # Old format: { "graph_data": { "nodes": [...], "edges": [...], "metadata": {...} } }
+            logger.debug("📦 Processing old format (graph_data wrapper)")
+            inner_data = graph_data["graph_data"]
+            nodes = inner_data.get("nodes", [])
+            edges = inner_data.get("edges", [])
+            metadata = inner_data.get("metadata", {})
+        elif "nodes" in graph_data or "edges" in graph_data:
+            # New format: { "nodes": [...], "edges": [...], "metadata": {...} }
+            logger.debug("📦 Processing new format (direct nodes/edges)")
+            nodes = graph_data.get("nodes", [])
+            edges = graph_data.get("edges", [])
+            metadata = graph_data.get("metadata", {})
+        else:
+            logger.debug("📦 No graph structure data to update")
+            nodes, edges, metadata = None, None, None
+        
+        # Apply graph data updates
+        if nodes is not None or edges is not None:
+            # Use current data if not provided
+            current_nodes = graph.get_nodes() if nodes is None else nodes
+            current_edges = graph.get_edges() if edges is None else edges
+            current_metadata = graph.get_metadata() if metadata is None else metadata
+            
+            logger.info(f"💾 Updating graph structure: {len(current_nodes)} nodes, {len(current_edges)} edges")
+            
+            try:
+                graph.set_graph_data(
+                    nodes=current_nodes,
+                    edges=current_edges,
+                    metadata=current_metadata
+                )
+                logger.debug("✅ Graph data validation passed")
+            except ValueError as e:
+                logger.error(f"❌ Graph data validation failed: {str(e)}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid graph data: {str(e)}"
+                )
+        
+        # Increment version on graph updates
+        old_version = graph.version
+        graph.increment_version()
+        logger.debug(f"📈 Version incremented: {old_version} → {graph.version}")
 
         db.commit()
         db.refresh(graph)
+        
+        logger.info(f"✅ Graph {graph_id} updated successfully (v{graph.version})")
 
         return {
             "success": True,
             "data": graph,
-            "message": "Graph updated successfully"
+            "message": f"Graph updated successfully (version {graph.version})"
         }
     except HTTPException:
+        # Re-raise HTTP exceptions (like 404, 400) without additional wrapping
         raise
+    except ValueError as e:
+        # Handle validation errors from graph.set_graph_data()
+        logger.error(f"❌ Graph validation error for {graph_id}: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid graph data: {str(e)}"
+        )
     except Exception as e:
+        # Handle unexpected errors
+        logger.error(f"❌ Unexpected error updating graph {graph_id}: {str(e)}")
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

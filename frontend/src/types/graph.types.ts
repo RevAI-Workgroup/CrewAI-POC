@@ -4,8 +4,15 @@ export interface Graph {
   description?: string;
   created_at: string;
   updated_at: string;
-  nodes: GraphNode[];
-  edges: GraphEdge[];
+  // Backend stores graph structure in graph_data JSON field
+  graph_data?: {
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+    metadata?: Record<string, any>;
+  };
+  // Legacy direct properties for backward compatibility
+  nodes?: GraphNode[];
+  edges?: GraphEdge[];
   metadata?: Record<string, any>;
 }
 

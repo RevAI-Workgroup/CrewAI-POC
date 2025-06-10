@@ -161,12 +161,22 @@ export function useGraphHistory({
     description?: string,
     syncFn?: (nodes: Node[], edges: Edge[]) => void
   ) => {
+    console.log('📚 addHistoryStateWithSync called:', { 
+      operation, 
+      nodeCount: nodes.length, 
+      edgeCount: edges.length, 
+      hasSyncFn: !!syncFn 
+    });
+    
     // Add to history first
     addHistoryState(nodes, edges, operation, description);
     
     // Then sync if provided
     if (syncFn) {
+      console.log('🔄 Calling sync function from history');
       syncFn(nodes, edges);
+    } else {
+      console.log('⚠️ No sync function provided');
     }
   }, [addHistoryState]);
 
