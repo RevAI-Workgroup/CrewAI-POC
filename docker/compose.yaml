@@ -1,0 +1,99 @@
+name: crewai
+
+services:
+  # PostgreSQL database with pgvector
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-crewai}
+      POSTGRES_USER: ${POSTGRES_USER:-crewai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    networks:
+      - crewai-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-crewai} -d ${POSTGRES_DB:-crewai}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+  # Redis for caching and queue backend
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    networks:
+      - crewai-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+  dbgate:
+    image: dbgate/dbgate
+    restart: always
+    ports:
+      - 5000:3000
+    volumes:
+      - dbgate-data:/root/.dbgate
+    networks:
+      - crewai-network
+    environment:
+      CONNECTIONS: con1
+
+      LABEL_con1: Postgres
+      SERVER_con1: postgres
+      USER_con1: ${POSTGRES_USER:-crewai}
+      PASSWORD_con1: ${POSTGRES_PASSWORD}
+      PORT_con1: 5432
+      ENGINE_con1: postgres@dbgate-plugin-postgres
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  dbgate-data:
+    driver: local
+
+networks:
+  crewai-network:
+    driver: bridge
+    name: crewai-network
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16 
