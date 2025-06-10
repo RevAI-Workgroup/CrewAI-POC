@@ -41,8 +41,8 @@ This document lists all tasks associated with PBI-002.
 | 2-31 | [Node Property Panels](mdc:./tasks/PBI-002-31.md) | Done | Create dynamic forms for node configuration |
 | 2-32 | [Field Visibility System](mdc:./tasks/PBI-002-32.md) | Done | Implement dynamic field visibility based on selections |
 | 2-33 | [Node Validation](mdc:./tasks/PBI-002-33.md) | Proposed | Add real-time validation and error display |
-| 2-34 | [Real-time Synchronization](mdc:./tasks/PBI-002-34.md) | Proposed | Sync graph changes with backend in real-time |
-| 2-35 | [Undo/Redo Functionality](mdc:./tasks/PBI-002-35.md) | Proposed | Implement graph editing history |
+| 2-34 | [Real-time Synchronization](mdc:./tasks/PBI-002-34.md) | InProgess | Sync graph changes with backend in real-time |
+| 2-35 | [Undo/Redo Functionality](mdc:./tasks/PBI-002-35.md) | InProgess | Implement graph editing history |
 | 2-36 | [Graph Export/Import](mdc:./tasks/PBI-002-36.md) | Proposed | Add JSON export/import capabilities |
 | 2-37 | [Loading States](mdc:./tasks/PBI-002-37.md) | Proposed | Implement skeleton loading and progress indicators |
 | 2-38 | [Error Boundaries](mdc:./tasks/PBI-002-38.md) | Proposed | Add comprehensive error handling |
