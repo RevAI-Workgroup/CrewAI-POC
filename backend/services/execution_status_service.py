@@ -17,6 +17,14 @@ from sqlalchemy import and_, or_
 from models.execution import Execution, ExecutionStatus, ExecutionPriority
 from db_config import SessionLocal
 
+# Import SSE service for real-time updates
+try:
+    from services.sse_service import sse_service
+    SSE_AVAILABLE = True
+except ImportError:
+    SSE_AVAILABLE = False
+    sse_service = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -98,6 +106,9 @@ class ExecutionStatusService:
             # Execute callbacks
             self._execute_callbacks(new_status, execution)
             
+            # Broadcast status change via SSE if available
+            self._broadcast_status_change(execution, new_status)
+            
             logger.info(f"Updated execution {execution_id} status to {new_status.value}")
             return execution
             
@@ -114,6 +125,43 @@ class ExecutionStatusService:
                     callback(execution)
                 except Exception as e:
                     logger.error(f"Status callback failed: {e}")
+    
+    def _broadcast_status_change(self, execution: Execution, new_status: ExecutionStatus):
+        """Broadcast status change via SSE if available."""
+        if not SSE_AVAILABLE or not sse_service:
+            return
+        
+        try:
+            import asyncio
+            
+            # Get user_id from execution config (we need to extract it from the execution context)
+            # For now, we'll try to get it from execution_config if available
+            user_id = None
+            execution_config = getattr(execution, 'execution_config', None)
+            if execution_config and isinstance(execution_config, dict):
+                user_id = execution_config.get('user_id')
+            
+            if not user_id:
+                logger.warning(f"Cannot broadcast status change for execution {execution.id}: no user_id found")
+                return
+            
+            asyncio.create_task(sse_service.broadcast_execution_event(
+                "execution_status",
+                str(user_id),
+                {
+                    "execution_id": str(execution.id),
+                    "status": new_status,
+                    "progress_percentage": execution.progress_percentage,
+                    "current_step": execution.current_step,
+                    "error_message": execution.error_message,
+                    "result_data": execution.result_data if hasattr(execution, 'result_data') else None,
+                    "user_id": str(user_id),
+                    "graph_id": str(execution.graph_id) if hasattr(execution, 'graph_id') else None,
+                    "thread_id": None  # Thread ID not available in current model
+                }
+            ))
+        except Exception as e:
+            logger.warning(f"Failed to broadcast status change via SSE: {e}")
     
     def get_execution_status(self, execution_id: UUID) -> Dict[str, Any]:
         """Get detailed execution status information."""

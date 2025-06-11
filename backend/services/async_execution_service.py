@@ -27,6 +27,14 @@ from models.graph import Graph
 from services.graph_translation import GraphTranslationService
 from db_config import SessionLocal
 
+# Import SSE service for real-time updates
+try:
+    from services.sse_service import sse_service
+    SSE_AVAILABLE = True
+except ImportError:
+    SSE_AVAILABLE = False
+    sse_service = None
+
 logger = get_task_logger(__name__)
 
 # Only import celery_app if Celery is available
@@ -131,6 +139,25 @@ def _execute_crew_logic(
         
         logger.info(f"Starting crew execution {execution_id} for graph {graph_id}")
         
+        # Broadcast execution start event via SSE
+        if SSE_AVAILABLE and sse_service:
+            try:
+                import asyncio
+                asyncio.create_task(sse_service.broadcast_execution_event(
+                    "execution_start",
+                    user_id,
+                    {
+                        "execution_id": str(execution_id),
+                        "graph_id": graph_id,
+                        "thread_id": thread_id,
+                        "user_id": user_id,
+                        "inputs": inputs,
+                        "started_at": datetime.utcnow()
+                    }
+                ))
+            except Exception as e:
+                logger.warning(f"Failed to broadcast execution start event: {e}")
+        
         # Update task progress
         if hasattr(task_context, 'update_state'):
             task_context.update_state(
@@ -156,6 +183,23 @@ def _execute_crew_logic(
                 meta={"execution_id": str(execution_id), "status": "executing", "progress": 25}
             )
         
+        # Broadcast progress event via SSE
+        if SSE_AVAILABLE and sse_service:
+            try:
+                asyncio.create_task(sse_service.broadcast_execution_event(
+                    "execution_progress",
+                    user_id,
+                    {
+                        "execution_id": str(execution_id),
+                        "progress_percentage": 25,
+                        "current_step": "Executing crew",
+                        "message": "Translating graph to CrewAI objects",
+                        "user_id": user_id
+                    }
+                ))
+            except Exception as e:
+                logger.warning(f"Failed to broadcast execution progress event: {e}")
+        
         # Execute the crew
         logger.info(f"Executing crew for graph {graph_id}")
         result = crew.kickoff(inputs=inputs)
@@ -171,6 +215,23 @@ def _execute_crew_logic(
         db.commit()
         
         logger.info(f"Completed crew execution {execution_id}")
+        
+        # Broadcast completion event via SSE
+        if SSE_AVAILABLE and sse_service:
+            try:
+                asyncio.create_task(sse_service.broadcast_execution_event(
+                    "execution_complete",
+                    user_id,
+                    {
+                        "execution_id": str(execution_id),
+                        "result": output,
+                        "duration_seconds": execution_log.duration_seconds,
+                        "completed_at": datetime.utcnow(),
+                        "user_id": user_id
+                    }
+                ))
+            except Exception as e:
+                logger.warning(f"Failed to broadcast execution complete event: {e}")
         
         # Final progress update
         if hasattr(task_context, 'update_state'):
@@ -191,6 +252,23 @@ def _execute_crew_logic(
         error_traceback = traceback.format_exc()
         
         logger.error(f"Crew execution failed: {error_msg}")
+        
+        # Broadcast error event via SSE
+        if SSE_AVAILABLE and sse_service and execution_id is not None:
+            try:
+                asyncio.create_task(sse_service.broadcast_execution_event(
+                    "execution_error",
+                    user_id,
+                    {
+                        "execution_id": str(execution_id),
+                        "error_message": error_msg,
+                        "error_details": {"traceback": error_traceback},
+                        "user_id": user_id,
+                        "failed_at": datetime.utcnow()
+                    }
+                ))
+            except Exception as e:
+                logger.warning(f"Failed to broadcast execution error event: {e}")
         
         # Handle error with enhanced error service
         try:

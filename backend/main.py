@@ -20,6 +20,7 @@ from startup import startup_database_check
 # Import routers
 from routers.auth import router as auth_router
 from routers.graphs import router as graphs_router
+from routers.sse import router as sse_router
 
 
 @asynccontextmanager
@@ -68,6 +69,7 @@ app.add_middleware(
 # Include routers
 app.include_router(auth_router, prefix="/api")
 app.include_router(graphs_router, prefix="/api")
+app.include_router(sse_router, prefix="/api")
 
 @app.get("/")
 async def root():
