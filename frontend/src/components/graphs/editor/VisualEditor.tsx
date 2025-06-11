@@ -18,7 +18,7 @@ const VisualEditor: React.FC<VisualEditorProps> = ({graph}) => {
   const { setSelectedGraph } = useGraphStore();
 
   useEffect(() => {
-    console.log('🔍 VisualEditor graph:', graph);
+    console.debug('🔍 VisualEditor graph:', graph);
     setSelectedGraph(graph);
   }, [graph, setSelectedGraph]);
 

@@ -134,7 +134,7 @@ const useGraphStore = create<GraphStoreState>()(
         }
 
         const nodeDef = response.data.data;
-        console.log("Node def", nodeDef)
+        console.debug("Node def", nodeDef)
         set({
           nodeDef,
           isLoading: false,

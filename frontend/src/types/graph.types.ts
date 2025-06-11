@@ -22,6 +22,8 @@ export interface GraphNode {
   position: { x: number; y: number };
   data: Record<string, any>;
   label?: string;
+  // Enhanced storage fields for better relationship tracking
+  category?: string; // Node category from definition
 }
 
 export interface GraphEdge {

@@ -17,7 +17,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-interface EditorToolbarProps {
+interface SyncToolbarProps {
   // Undo/Redo
   canUndo: boolean;
   canRedo: boolean;
@@ -37,7 +37,7 @@ interface EditorToolbarProps {
   className?: string;
 }
 
-const EditorToolbar: React.FC<EditorToolbarProps> = ({
+const SyncToolbar: React.FC<SyncToolbarProps> = ({
   canUndo,
   canRedo,
   onUndo,
@@ -51,6 +51,15 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
   onSave,
   className
 }) => {
+
+  console.debug('🔍 SyncToolbar props:', {
+    canUndo,
+    canRedo,
+    isSyncing,
+    lastSyncedAt,
+    syncError,
+  });
+
   const getSyncStatusIcon = () => {
     if (isSyncing) {
       return <Loader2 className="h-4 w-4 animate-spin" />;
@@ -134,7 +143,7 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
                 </span>
               </div>
             </TooltipTrigger>
-            <TooltipContent>
+            <TooltipContent side="bottom">
               <p>
                 {isSyncing && 'Graph is being saved to server'}
                 {syncError && `Sync failed: ${syncError}`}
@@ -171,4 +180,4 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({
   );
 };
 
-export default EditorToolbar; 
+export default SyncToolbar; 

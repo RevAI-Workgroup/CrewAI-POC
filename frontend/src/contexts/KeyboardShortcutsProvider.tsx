@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useReactFlow, useNodes, useEdges } from '@xyflow/react';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
+import { undoHistory, redoHistory, canUndoHistory, canRedoHistory } from '@/stores/historyStore';
 
 interface KeyboardShortcut {
   key: string;
@@ -36,14 +37,29 @@ export const KeyboardShortcutsProvider = ({ children }: KeyboardShortcutsProvide
   const nodes = useNodes();
   const edges = useEdges();
   
-  // Import history hooks for undo/redo
-  const historyStore = React.useMemo(() => {
-    try {
-      return require('@/stores/historyStore').default();
-    } catch {
-      return null;
+  // History functionality - use exported functions to avoid store instance conflicts
+  const canUndo = canUndoHistory();
+  const canRedo = canRedoHistory();
+  
+  const undoOperation = useCallback(() => {
+    const historyState = undoHistory();
+    if (historyState) {
+      setNodes(historyState.nodes);
+      setEdges(historyState.edges);
+      return true;
     }
-  }, []);
+    return false;
+  }, [setNodes, setEdges]);
+  
+  const redoOperation = useCallback(() => {
+    const historyState = redoHistory();
+    if (historyState) {
+      setNodes(historyState.nodes);
+      setEdges(historyState.edges);
+      return true;
+    }
+    return false;
+  }, [setNodes, setEdges]);
 
   // Memoize selected nodes and edges to prevent infinite re-renders
   const selectedNodes = useMemo(() => nodes.filter(node => node.selected), [nodes]);
@@ -183,8 +199,49 @@ export const KeyboardShortcutsProvider = ({ children }: KeyboardShortcutsProvide
     toast.info('Centered view');
   }, [nodes, setCenter]);
 
+  // Undo/Redo operations with toast feedback
+  const undoWithToast = useCallback(() => {
+    console.log('⌨️ Undo keyboard shortcut triggered, canUndo:', canUndo);
+    if (!canUndo) {
+      toast.info('Nothing to undo');
+      return;
+    }
+    
+    const success = undoOperation();
+    if (success) {
+      toast.success('Undone');
+    } else {
+      toast.error('Failed to undo');
+    }
+  }, [canUndo, undoOperation]);
+
+  const redoWithToast = useCallback(() => {
+    console.log('⌨️ Redo keyboard shortcut triggered, canRedo:', canRedo);
+    if (!canRedo) {
+      toast.info('Nothing to redo');
+      return;
+    }
+    
+    const success = redoOperation();
+    if (success) {
+      toast.success('Redone');
+    } else {
+      toast.error('Failed to redo');
+    }
+  }, [canRedo, redoOperation]);
+
   // Memoize shortcuts array to prevent recreation
   const shortcuts: KeyboardShortcut[] = useMemo(() => [
+    {
+      key: 'Ctrl+Z',
+      description: 'Undo last action',
+      action: undoWithToast,
+    },
+    {
+      key: 'Ctrl+Y',
+      description: 'Redo last action',
+      action: redoWithToast,
+    },
     {
       key: 'Ctrl+C',
       description: 'Copy selected nodes',
@@ -241,6 +298,8 @@ export const KeyboardShortcutsProvider = ({ children }: KeyboardShortcutsProvide
       action: () => setShowShortcuts(true),
     },
   ], [
+    undoWithToast,
+    redoWithToast,
     copySelection,
     pasteSelection,
     duplicateSelection,
@@ -267,7 +326,13 @@ export const KeyboardShortcutsProvider = ({ children }: KeyboardShortcutsProvide
       const modKey = ctrlKey || metaKey;
 
       // Match shortcuts
-      if (modKey && key === 'c') {
+      if (modKey && key === 'z') {
+        event.preventDefault();
+        undoWithToast();
+      } else if (modKey && key === 'y') {
+        event.preventDefault();
+        redoWithToast();
+      } else if (modKey && key === 'c') {
         event.preventDefault();
         copySelection();
       } else if (modKey && key === 'v') {
@@ -306,6 +371,8 @@ export const KeyboardShortcutsProvider = ({ children }: KeyboardShortcutsProvide
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [
+    undoWithToast,
+    redoWithToast,
     copySelection,
     pasteSelection,
     duplicateSelection,

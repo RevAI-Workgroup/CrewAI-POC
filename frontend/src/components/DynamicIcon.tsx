@@ -31,7 +31,6 @@ export const DynamicIcon: React.FC<DynamicIconProps> = ({ name, ...props }) => {
     if(staticIconsMap[iconName.toLowerCase()]) {
         return staticIconsMap[iconName.toLowerCase()];
     }
-    console.log(`No icon found for ${iconName.toLowerCase()}`);
     return null;
   }
   return <IconComponent {...props} />;

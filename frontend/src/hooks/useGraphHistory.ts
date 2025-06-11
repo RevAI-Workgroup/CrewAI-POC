@@ -12,6 +12,9 @@ export function useGraphHistory({
   onStateRestore, 
   onHistoryChange 
 }: UseGraphHistoryOptions = {}) {
+  
+  // ✅ FIX: Zustand persist middleware handles reactivity automatically
+  // No need for manual subscriptions or force updates
   const { 
     history,
     currentIndex,
@@ -60,41 +63,101 @@ export function useGraphHistory({
   
   // Undo operation
   const undoOperation = useCallback(() => {
+    console.log('🔄 Undo operation called, canUndo:', canUndo);
+    console.log('🔍 Current store state before undo:', {
+      historyLength: history.length,
+      currentIndex,
+      canUndo,
+      canRedo
+    });
+    
     if (!canUndo) return false;
     
     const previousState = undo();
     if (previousState && onStateRestore) {
+      console.log('✅ Undo successful, restoring state:', {
+        nodeCount: previousState.nodes.length,
+        edgeCount: previousState.edges.length,
+        operation: previousState.operation
+      });
       onStateRestore(previousState.nodes, previousState.edges);
       onHistoryChange?.('undo', previousState.operation);
       return true;
     }
+    console.log('❌ Undo failed - no previous state or onStateRestore');
     return false;
-  }, [canUndo, undo, onStateRestore, onHistoryChange]);
+  }, [canUndo, undo, onStateRestore, onHistoryChange, history.length, currentIndex, canRedo]);
   
   // Redo operation
   const redoOperation = useCallback(() => {
+    console.log('🔄 Redo operation called, canRedo:', canRedo);
+    console.log('🔍 Current store state before redo:', {
+      historyLength: history.length,
+      currentIndex,
+      canUndo,
+      canRedo
+    });
+    
     if (!canRedo) return false;
     
     const nextState = redo();
     if (nextState && onStateRestore) {
+      console.log('✅ Redo successful, restoring state:', {
+        nodeCount: nextState.nodes.length,
+        edgeCount: nextState.edges.length,
+        operation: nextState.operation
+      });
       onStateRestore(nextState.nodes, nextState.edges);
       onHistoryChange?.('redo', nextState.operation);
       return true;
     }
+    console.log('❌ Redo failed - no next state or onStateRestore');
     return false;
-  }, [canRedo, redo, onStateRestore, onHistoryChange]);
+  }, [canRedo, redo, onStateRestore, onHistoryChange, history.length, currentIndex, canUndo]);
   
   // Clear all history
   const clearHistory = useCallback(() => {
     clear();
   }, [clear]);
   
-  // Initialize history with current state
-  const initializeHistory = useCallback((nodes: Node[], edges: Edge[]) => {
-    clear();
-    pushState(nodes, edges, 'initial', 'Initial state');
+  // ✅ SIMPLIFIED: Initialize history with automatic persistence
+  const initializeHistory = useCallback((nodes: Node[], edges: Edge[], graphId?: string) => {
+    console.log('🚀 Initializing history for graph:', graphId);
+    
+    if (graphId) {
+      // ✅ Load history from persist middleware (automatic)
+      const store = useHistoryStore.getState();
+      store.loadHistory(graphId);
+      
+      // ✅ Check immediately after loading
+      const freshState = useHistoryStore.getState();
+      console.log('🔍 History after loading:', { 
+        historyLength: freshState.history.length, 
+        currentIndex: freshState.currentIndex,
+        canUndo: freshState.canUndo,
+        canRedo: freshState.canRedo,
+        graphId 
+      });
+      
+      // If no stored history was loaded, add current state as initial IMMEDIATELY
+      if (freshState.history.length === 0) {
+        console.log('📝 No stored history found, adding initial state IMMEDIATELY');
+        pushState(nodes, edges, 'initial', 'Initial state');
+      } else {
+        console.log(`✅ Loaded ${freshState.history.length} history steps from persist store`);
+      }
+      
+      // ✅ End initialization phase after 200ms to allow React to settle
+      setTimeout(() => {
+        useHistoryStore.getState().endInitialization();
+      }, 200);
+    } else {
+      // No graphId, just clear and add initial state
+      clear();
+      pushState(nodes, edges, 'initial', 'Initial state');
+    }
   }, [clear, pushState]);
-  
+
   // Batch multiple operations
   const batchOperations = useCallback((
     operations: Array<{

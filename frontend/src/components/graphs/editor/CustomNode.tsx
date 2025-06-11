@@ -85,11 +85,11 @@ const CustomNode: React.FC<CustomNodeProps> = ({ data, selected, id }) => {
 
   // Initialize form data from node data (not localStorage)
   useEffect(() => {
-    console.log(`🔄 CustomNode ${id} data changed:`, data);
+    console.debug(`🔄 CustomNode ${id} data changed:`, data);
     
     // Only run default initialization once when the node is first loaded or when nodeDefinition changes
     if (!initializedRef.current && nodeDefinition && nodeDef) {
-      console.log(`🚀 First load for node ${id}, checking for missing defaults`);
+      console.debug(`🚀 First load for node ${id}, checking for missing defaults`);
       
       const { defaultFormData, defaultFieldVisibility } = initializeMissingDefaults(
         data.type,
@@ -103,7 +103,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({ data, selected, id }) => {
       const hasNewVisibility = Object.keys(defaultFieldVisibility || {}).length > 0;
       
       if (hasNewDefaults || hasNewVisibility) {
-        console.log(`🔧 Initializing missing defaults for node ${id}:`, { 
+        console.debug(`🔧 Initializing missing defaults for node ${id}:`, { 
           addedFormData: defaultFormData, 
           addedFieldVisibility: defaultFieldVisibility 
         });
@@ -137,11 +137,11 @@ const CustomNode: React.FC<CustomNodeProps> = ({ data, selected, id }) => {
     // Always update the local form state with current data
     const currentFormData = data.formData || {};
     if (Object.keys(currentFormData).length > 0) {
-      console.log(`📋 Loading form data for node ${id}:`, currentFormData);
+      console.debug(`📋 Loading form data for node ${id}:`, currentFormData);
       setLocalFormData(currentFormData);
       form.reset(currentFormData);
     } else {
-      console.log(`⚠️ No form data found for node ${id}, initializing empty`);
+      console.debug(`⚠️ No form data found for node ${id}, initializing empty`);
       setLocalFormData({});
       form.reset({});
     }

@@ -22,7 +22,7 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     
-    console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`);
+    console.debug(`[API] ${config.method?.toUpperCase()} ${config.url}`);
     return config;
   },
   (error) => {
@@ -34,7 +34,7 @@ api.interceptors.request.use(
 // Response interceptor for handling errors
 api.interceptors.response.use(
   (response) => {
-    console.log(`[API] Response ${response.status} ${response.config.url}`);
+    console.debug(`[API] Response ${response.status} ${response.config.url}`);
     return response;
   },
   (error) => {

@@ -19,10 +19,17 @@ export interface HistoryState {
 }
 
 export interface HistoryStore {
-  // State
+  // Current active state
   history: HistoryState[];
   currentIndex: number;
   maxHistorySize: number;
+  currentGraphId: string | null;
+  
+  // ✅ NEW: Per-graph history storage for persistence
+  graphHistories: Record<string, {
+    history: HistoryState[];
+    currentIndex: number;
+  }>;
   
   // Computed
   canUndo: boolean;
@@ -35,4 +42,10 @@ export interface HistoryStore {
   clear: () => void;
   getCurrentState: () => HistoryState | null;
   getPreviousOperation: () => HistoryOperation | null;
+  
+  // LocalStorage operations (now handled by persist middleware)
+  loadHistory: (graphId: string) => void;
+  saveHistory: () => void;
+  clearStoredHistory: (graphId: string) => void;
+  endInitialization: () => void;
 } 

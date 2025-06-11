@@ -48,7 +48,7 @@ export const useTokenRefresh = (options: UseTokenRefreshOptions = {}) => {
       try {
         refreshingRef.current = true;
         await refreshTokens();
-        console.log('Token refreshed automatically');
+        console.debug('Token refreshed automatically');
       } catch (error) {
         console.error('Automatic token refresh failed:', error);
         // Logout user if refresh fails

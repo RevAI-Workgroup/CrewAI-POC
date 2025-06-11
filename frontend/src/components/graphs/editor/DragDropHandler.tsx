@@ -30,7 +30,7 @@ export const useDragDropHandler = ({ setNodes }: DragDropHandlerProps) => {
       const draggedType = event.dataTransfer.getData('text/plain');
       // check if the dropped element is valid
       if (!draggedType || !nodeDef?.node_types[draggedType]) {
-        console.log("No type from dataTransfer or node type not found");
+        console.debug("No type from dataTransfer or node type not found");
         return;
       }
 

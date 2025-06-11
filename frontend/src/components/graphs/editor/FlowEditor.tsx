@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useState, useCallback, useEffect } from 'react';
+import { useRef, useMemo, useState, useCallback, useEffect } from 'react';
 import {
   Background,
   Controls,
@@ -6,7 +6,6 @@ import {
   useNodesState,
   useEdgesState,
   useReactFlow,
-  addEdge,
   ReactFlow,
   type Node,
   type Edge,
@@ -29,16 +28,16 @@ import ShortcutsButton from './ShortcutsButton';
 import ConnectionLine from './ConnectionLine';
 import CustomEdge from './CustomEdge';
 import ConnectionDropDialog from './ConnectionDropDialog';
-import EditorToolbar from './EditorToolbar';
+import SyncToolbar from './SyncToolbar';
 
 // Import custom hooks
 import { useConnectionHandler } from './ConnectionHandler';
 import { useDragDropHandler } from './DragDropHandler';
 import { useNodeTypeSelector } from './NodeTypeSelector';
 import { useGraphSync } from '@/hooks/useGraphSync';
-import { useGraphHistory } from '@/hooks/useGraphHistory';
-import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
-import type { HistoryOperation } from '@/types/history.types';
+  import { useAutoSync } from '@/hooks/useAutoSync';
+  import { useGraphHistory } from '@/hooks/useGraphHistory';
+  import type { HistoryOperation } from '@/types/history.types';
 
 const proOptions = { hideAttribution: true };
 
@@ -66,22 +65,31 @@ const FlowEditor = () => {
   // Check if we have a valid graph to work with
   const hasValidGraph = !!(selectedGraph && selectedGraph.id && selectedGraph.id.trim());
 
-  // Initialize sync and history hooks (always call hooks, but adjust parameters)
-  const { syncGraph, forceSyncGraph, loadGraphData, syncStatus } = useGraphSync({
+  // Load graph data function - separate from sync
+  const { loadGraphData } = useGraphSync({
     graphId: selectedGraph?.id || '',
     debounceMs: 1000,
-    enableSync: hasValidGraph
+    enableSync: false, // Only use for loading, auto-sync handles syncing
+    nodeDef: nodeDef
   });
 
+  // Auto-sync functionality
+  const { syncStatus, forceSyncGraph, manualSync } = useAutoSync(nodes, edges, {
+    graphId: selectedGraph?.id || '',
+    enableSync: hasValidGraph,
+    nodeDef
+  });
+
+  // History functionality with proper state restoration
   const {
     canUndo,
     canRedo,
-    addHistoryStateWithSync,
     undoOperation,
     redoOperation,
-    initializeHistory,
     getUndoTooltip,
-    getRedoTooltip
+    getRedoTooltip,
+    initializeHistory,
+    addHistoryState
   } = useGraphHistory({
     onStateRestore: (historyNodes, historyEdges) => {
       historySuppressionRef.current = true;
@@ -94,24 +102,72 @@ const FlowEditor = () => {
       }, 100);
     },
     onHistoryChange: (operation, historyOperation) => {
-      console.log(`${operation}: ${historyOperation}`);
+      console.debug(`${operation}: ${historyOperation}`);
     }
   });
 
-  // Add keyboard shortcuts for undo/redo
-  useKeyboardShortcuts({
+  // Create toolbar props object
+  const toolbarProps = {
+    // Undo/Redo props
+    canUndo,
+    canRedo,
     onUndo: undoOperation,
     onRedo: redoOperation,
-    canUndo,
-    canRedo
-  });
+    undoTooltip: getUndoTooltip(),
+    redoTooltip: getRedoTooltip(),
+    
+    // Sync status props
+    isSyncing: syncStatus.isSyncing,
+    lastSyncedAt: syncStatus.lastSyncedAt,
+    syncError: syncStatus.error,
+    pendingChanges: syncStatus.pendingChanges,
+    
+    // Manual save function
+    onSave: () => manualSync(nodes, edges)
+  };
 
-  
+  // Keyboard shortcuts are handled by KeyboardShortcutsProvider context
+
+  // Debug: Log node definitions when they change
+  useEffect(() => {
+    if (nodeDef) {
+      console.debug('📊 Node definitions loaded:', {
+        categories: nodeDef.categories?.map(c => c.id),
+        nodeTypes: Object.keys(nodeDef.node_types),
+        sampleAgentFields: nodeDef.node_types.agent ? Object.keys(nodeDef.node_types.agent.fields) : 'No agent type'
+      });
+      
+      // Log fields with filters for reference detection
+      Object.entries(nodeDef.node_types).forEach(([nodeType, def]) => {
+        const referenceFields = Object.entries(def.fields || {}).filter(([_, fieldDef]) => 
+          fieldDef.filter?.type || fieldDef.filter?.category
+        );
+        if (referenceFields.length > 0) {
+          console.debug(`🔗 ${nodeType} reference fields:`, referenceFields.map(([name, def]) => ({
+            name, 
+            filter: def.filter
+          })));
+        }
+      });
+    }
+  }, [nodeDef]);
 
   // Load initial graph data from graph_data field
   useEffect(() => {
     if (selectedGraph) {
-      console.log('🎯 Loading graph:', selectedGraph.id, selectedGraph);
+      console.debug('🎯 Loading graph:', selectedGraph.id, selectedGraph);
+      
+      // ✅ FIX: Don't reload graph if we're currently syncing - this prevents overwriting user changes
+      if (syncStatus.isSyncing) {
+        console.debug('⚠️ Skipping graph reload - sync in progress');
+        return;
+      }
+      
+      // ✅ FIX: Don't reload if we recently synced (within last 2 seconds) - likely a sync update
+      if (syncStatus.lastSyncedAt && (Date.now() - syncStatus.lastSyncedAt.getTime()) < 2000) {
+        console.debug('⚠️ Skipping graph reload - recent sync detected');
+        return;
+      }
       
       // Use graph_data if available, fallback to direct nodes/edges for backward compatibility
       const graphDataToLoad = selectedGraph.graph_data || {
@@ -121,20 +177,24 @@ const FlowEditor = () => {
       
       const { nodes: initialNodes, edges: initialEdges } = loadGraphData(graphDataToLoad);
       
-      console.log(`🎯 Setting ${initialNodes.length} nodes and ${initialEdges.length} edges`);
       setNodes(initialNodes);
       setEdges(initialEdges);
-      initializeHistory(initialNodes, initialEdges);
+      initializeHistory(initialNodes, initialEdges, selectedGraph.id);
+      
+      // Initialize counters
+      nodeCountRef.current = initialNodes.length;
     }
-  }, [selectedGraph?.id, loadGraphData, setNodes, setEdges, initializeHistory]);
+  }, [selectedGraph?.id, loadGraphData, setNodes, setEdges, initializeHistory, syncStatus.isSyncing, syncStatus.lastSyncedAt]); // ✅ Use selectedGraph.id instead of selectedGraph object
 
   // Track node count to detect additions/removals
   const nodeCountRef = useRef(0);
-  const lastMoveTimeRef = useRef(0);
+
+  // Track sync triggers to prevent duplicates
+  const lastSyncTriggerRef = useRef<string>('');
 
   // Enhanced nodes change handler with coordinated history and sync
   const handleNodesChange: OnNodesChange = useCallback((changes) => {
-    console.log('📝 Nodes changed:', changes);
+    console.debug('📝 Nodes changed:', changes);
     const oldNodeCount = nodeCountRef.current;
     
     onNodesChange(changes);
@@ -158,12 +218,12 @@ const FlowEditor = () => {
             'data' in change.item;
           
           if (isDataChange) {
-            console.log('📝 Data change detected:', change);
+            console.debug('📝 Data change detected:', change);
             
             // Check if this is just automatic default initialization
             const item = change.item as Node;
             if (item.data?.autoInit) {
-              console.log('⚠️ Skipping sync for automatic default initialization');
+              console.debug('⚠️ Skipping sync for automatic default initialization');
               return false; // Skip automatic default initialization
             }
           }
@@ -171,7 +231,7 @@ const FlowEditor = () => {
           return isDataChange;
         });
         
-        console.log('🔄 Processing changes:', { 
+        console.debug('🔄 Processing changes:', { 
           hasNewNodes, 
           hasRemovedNodes, 
           hasPositionChanges,
@@ -181,10 +241,9 @@ const FlowEditor = () => {
           changes 
         });
         
-        // Only proceed if there are actual changes we care about (ignore selection changes)
+                  // Only proceed if there are actual changes we care about (ignore selection changes)
         if (hasNewNodes || hasRemovedNodes || hasPositionChanges || hasDataChanges) {
           let operation: HistoryOperation = 'update_node';
-          let shouldSync = true;
           
           if (hasNewNodes) {
             operation = 'create_node';
@@ -192,46 +251,111 @@ const FlowEditor = () => {
             operation = 'delete_node';
           } else if (hasDataChanges) {
             operation = 'update_node';
-            // Form data changes should sync immediately to preserve user input
-            console.log('💾 Form data changed, syncing immediately');
+            // Form data changes will be synced automatically by useAutoSync
+            console.debug('💾 Form data changed, auto-sync will handle it');
           } else if (hasPositionChanges) {
             operation = 'move_node';
-            // Debounce move operations - only sync after user stops moving for 1 second
-            const now = Date.now();
-            lastMoveTimeRef.current = now;
-            
-            setTimeout(() => {
-              // Only sync if this was the last move operation
-              if (lastMoveTimeRef.current === now) {
-                console.log('💾 Syncing final move position');
-                // Get fresh state for the delayed sync
-                const latestNodes = getNodes();
-                const latestEdges = getEdges();
-                syncGraph(latestNodes, latestEdges);
-              }
-            }, 1000);
-            
-            shouldSync = false; // Don't sync immediately for moves
+            // Move operations will be synced automatically by useAutoSync with debouncing
+            console.debug('💾 Position changed, auto-sync will handle it');
           }
           
-          console.log('💾 Adding to history:', operation, shouldSync ? 'and syncing' : 'without immediate sync');
+          console.debug('💾 Adding to history:', operation, '(auto-sync will handle synchronization)');
           
-          // Add to history and optionally sync with fresh state
-          addHistoryStateWithSync(
-            currentNodes, 
-            currentEdges, 
-            operation, 
-            undefined, 
-            shouldSync ? syncGraph : undefined
-          );
+          // Simplified: Just add to history, auto-sync handles synchronization
+          addHistoryState(currentNodes, currentEdges, operation);
         }
       }, 10); // Small delay to ensure state is updated
     }
-  }, [onNodesChange, getNodes, getEdges, addHistoryStateWithSync, syncGraph]);
+  }, [onNodesChange, getNodes, getEdges, addHistoryState]);
+
+  // Function to update form fields based on edge connections
+  const updateFormFieldsFromEdges = useCallback((nodes: Node[], edges: Edge[]) => {
+    console.debug('🔗 Updating form fields from edges...');
+    console.debug('🔗 Input edges:', edges.map(e => ({id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle})));
+    
+    // Create a map of target node ID + field name to source node ID
+    const fieldConnections: Record<string, string> = {};
+    
+    edges.forEach(edge => {
+      if (edge.targetHandle && edge.target && edge.source) {
+        const connectionKey = `${edge.target}:${edge.targetHandle}`;
+        fieldConnections[connectionKey] = edge.source;
+        console.debug(`🔗 Edge connection: ${edge.target}.${edge.targetHandle} -> ${edge.source}`);
+      } else {
+        console.debug(`⚠️ Edge missing handle info:`, edge);
+      }
+    });
+    
+    console.debug('🔗 Field connections map:', fieldConnections);
+    
+    // Update nodes with new form field values
+    const updatedNodes = nodes.map(node => {
+      const nodeDefinition = nodeDef?.node_types?.[node.type as any];
+      if (!nodeDefinition || !nodeDefinition.fields) {
+        console.debug(`⚠️ No node definition found for ${node.type}`);
+        return node;
+      }
+      
+      let hasChanges = false;
+      const newFormData: Record<string, any> = { ...(node.data?.formData || {}) };
+      
+      console.debug(`🔍 Checking node ${node.id} (${node.type}) fields:`, Object.keys(nodeDefinition.fields));
+      
+      // Check each field in the node definition
+      Object.entries(nodeDefinition.fields).forEach(([fieldName, fieldDef]: [string, any]) => {
+        // Skip non-reference fields - should be OR logic (either type OR category filter)
+        if (!fieldDef?.filter || (!fieldDef.filter.type && !fieldDef.filter.category)) {
+          console.debug(`📝 Skipping non-reference field ${fieldName} for ${node.type}`);
+          return;
+        }
+        
+        console.debug(`🔗 Processing reference field ${fieldName} for ${node.type}:`, fieldDef.filter);
+        
+        const connectionKey = `${node.id}:${fieldName}`;
+        const connectedSourceId = fieldConnections[connectionKey];
+        
+        if (connectedSourceId) {
+          // Field is connected to a source node
+          if (newFormData[fieldName] !== connectedSourceId) {
+            console.debug(`🔗 Updating ${node.type} node ${node.id}: ${fieldName} = ${connectedSourceId} (was: ${newFormData[fieldName]})`);
+            newFormData[fieldName] = connectedSourceId;
+            hasChanges = true;
+          } else {
+            console.debug(`✅ Field ${fieldName} already has correct value: ${connectedSourceId}`);
+          }
+        } else {
+          // Field is not connected - only clear if it currently has a value that looks like a node ID
+          const currentValue = newFormData[fieldName];
+          if (currentValue && typeof currentValue === 'string' && currentValue.length > 10) {
+            console.debug(`🔗 Clearing ${node.type} node ${node.id}: ${fieldName} (was: ${currentValue}, no connection found)`);
+            newFormData[fieldName] = '';
+            hasChanges = true;
+          }
+        }
+      });
+      
+      if (hasChanges) {
+        console.debug(`✅ Node ${node.id} form data updated:`, newFormData);
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            formData: newFormData
+          }
+        };
+      }
+      
+      return node;
+    });
+    
+    console.debug('🔗 Form field update complete');
+    return updatedNodes;
+  }, [nodeDef]);
 
   // Enhanced edges change handler with coordinated history and sync
   const handleEdgesChange: OnEdgesChange = useCallback((changes) => {
-    console.log('🔗 Edges changed:', changes);
+    console.debug('🔗 Edges changed:', changes);
+    console.debug('🔗 Change types detected:', changes.map(c => c.type));
     
     onEdgesChange(changes);
     
@@ -242,14 +366,14 @@ const FlowEditor = () => {
         const currentNodes = getNodes();
         const currentEdges = getEdges();
         
-        console.log('🔗 Current edges after change:', currentEdges);
+        console.debug('🔗 Current edges after change:', currentEdges.map(e => ({id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle})));
         
         // Determine operation type from changes
         const hasNewEdges = changes.some(change => change.type === 'add');
         const hasRemovedEdges = changes.some(change => change.type === 'remove');
         const hasUpdatedEdges = changes.some(change => change.type === 'replace');
         
-        console.log('🔄 Processing edge changes:', { 
+        console.debug('🔄 Processing edge changes:', { 
           hasNewEdges, 
           hasRemovedEdges, 
           hasUpdatedEdges,
@@ -269,22 +393,48 @@ const FlowEditor = () => {
             operation = 'update_node'; // Edge data updated
           }
           
-          console.log('💾 Adding edge change to history and syncing:', operation);
+          console.debug('💾 Adding edge change to history and syncing:', operation);
           
-          // Add to history first, then sync to backend with fresh state
-          addHistoryStateWithSync(
-            currentNodes, 
-            currentEdges, 
-            operation, 
-            undefined, 
-            syncGraph // Always sync for edge changes
+          // Track that normal sync is happening
+          lastSyncTriggerRef.current = Date.now().toString();
+          
+          // Update form fields based on new edge connections
+          const updatedNodes = updateFormFieldsFromEdges(currentNodes, currentEdges);
+          
+          // Check if nodes were actually updated
+          const nodesChanged = updatedNodes.some((node, index) => 
+            JSON.stringify(node.data?.formData) !== JSON.stringify(currentNodes[index]?.data?.formData)
           );
+          
+          console.debug('🔗 Nodes changed by edge mapping:', nodesChanged);
+          
+          // If we updated nodes, apply the changes immediately
+          if (nodesChanged) {
+            console.debug('🔗 Applying form field updates from edge mapping');
+            
+            // Suppress history tracking for these automatic node updates
+            historySuppressionRef.current = true;
+            setNodes(updatedNodes);
+            
+            // Re-enable history tracking after a brief delay
+            setTimeout(() => {
+              historySuppressionRef.current = false;
+            }, 50);
+            
+            // Simplified: Just add to history, auto-sync will handle synchronization
+            addHistoryState(updatedNodes, currentEdges, operation);
+          } else {
+            // Simplified: Just add to history, auto-sync will handle synchronization
+            addHistoryState(currentNodes, currentEdges, operation);
+          }
         } else {
-          console.log('⚠️ No significant edge changes detected');
+          console.debug('⚠️ No significant edge changes detected');
         }
       }, 10); // Small delay to ensure state is updated
+    } else {
+      console.debug('⚠️ Edge changes suppressed due to history operation');
     }
-  }, [onEdgesChange, getNodes, getEdges, addHistoryStateWithSync, syncGraph]);
+  }, [onEdgesChange, getNodes, getEdges, addHistoryState, updateFormFieldsFromEdges, setNodes]);
 
   // Use custom hooks for separated concerns
   const { onConnectStart, onConnectEnd, isValidConnection, getCompatibleNodeTypes } = useConnectionHandler({
@@ -324,17 +474,40 @@ const FlowEditor = () => {
 
   const onConnect: OnConnect = useCallback(
     (params: Connection) => {
+      console.debug('🔗 onConnect called with params:', params);
+      console.debug('🔗 Handle info - source:', params.sourceHandle, 'target:', params.targetHandle);
+      
       // Double-check validation before adding the edge
       if (!isValidConnection(params)) {
+        console.debug('❌ Connection validation failed:', params);
         return;
       }
+      
+      console.debug('✅ Connection validated, adding edge...');
       
       // Clear connection info when a successful connection is made
       setDraggedConnectionInfo(null);
       
-      setEdges((eds: Edge[]) => addEdge(params, eds));
+      setEdges((eds: Edge[]) => {
+        // Explicitly create edge with handle information
+        const newEdge = {
+          id: `xy-edge__${params.source}${params.sourceHandle || 'output'}-${params.target}${params.targetHandle || 'input'}`,
+          source: params.source!,
+          target: params.target!,
+          sourceHandle: params.sourceHandle || null,
+          targetHandle: params.targetHandle || null,
+          type: 'default',
+          data: {}
+        };
+        
+        console.debug('🔗 Creating edge with handles:', newEdge);
+        const newEdges = [...eds, newEdge];
+        console.debug('🔗 Edges updated from', eds.length, 'to', newEdges.length);
+        
+        return newEdges;
+      });
     }, 
-    [setEdges, isValidConnection]
+    [setEdges, isValidConnection, getNodes, getEdges, setNodes]
   );
 
   // Handle pane click to clear handle selection
@@ -368,17 +541,8 @@ const FlowEditor = () => {
   return (
     <div className="flex w-full h-full relative" id="flow-editor">
       {/* Editor Toolbar */}
-      <EditorToolbar
-        canUndo={canUndo}
-        canRedo={canRedo}
-        onUndo={undoOperation}
-        onRedo={redoOperation}
-        undoTooltip={getUndoTooltip()}
-        redoTooltip={getRedoTooltip()}
-        isSyncing={syncStatus.isSyncing}
-        lastSyncedAt={syncStatus.lastSyncedAt}
-        syncError={syncStatus.error}
-        pendingChanges={syncStatus.pendingChanges}
+      <SyncToolbar
+        {...toolbarProps}
         className="absolute top-4 right-4 z-10"
       />
 
