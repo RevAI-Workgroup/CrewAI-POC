@@ -23,11 +23,11 @@ This document lists all tasks associated with PBI-001.
 | 1-13 | [Node Type Definitions](mdc:PBI-001-13.md) | Done | Define CrewAI node types and schemas |
 | 1-14 | [Graph Validation Service](mdc:PBI-001-14.md) | Done | Core graph validation logic |
 | 1-15 | [Graph CRUD Endpoints](mdc:PBI-001-15.md) | Done | REST endpoints for graph management and Node definition structure |
-| 1-16 | [Graph Validation Endpoints](mdc:PBI-001-16.md) | Proposed | API endpoints for graph validation |
-| 1-17 | [Template Management](mdc:PBI-001-17.md) | Proposed | Admin-only template CRUD operations |
-| 1-18 | [Graph Testing](mdc:PBI-001-18.md) | Proposed | Testing framework for graph validation |
-| 1-19 | [CrewAI Integration](mdc:PBI-001-19.md) | Proposed | Research and integrate CrewAI 0.121.1 |
-| 1-20 | [Graph to CrewAI Translation](mdc:PBI-001-20.md) | Proposed | Service to convert graphs to CrewAI objects |
+| 1-16 | [Graph Validation Endpoints](mdc:PBI-001-16.md) | Skipped | API endpoints for graph validation |
+| 1-17 | [Template Management](mdc:PBI-001-17.md) | Skipped | Admin-only template CRUD operations |
+| 1-18 | [Graph Testing](mdc:PBI-001-18.md) | Skipped | Testing framework for graph validation |
+| 1-19 | [CrewAI Integration](mdc:PBI-001-19.md) | Done | Research and integrate CrewAI 0.121.1 |
+| 1-20 | [Graph to CrewAI Translation](mdc:PBI-001-20.md) | Done | Service to convert graphs to CrewAI objects |
 | 1-21 | [Async Execution Service](mdc:PBI-001-21.md) | Proposed | Celery-based async crew execution |
 | 1-22 | [Execution Status Management](mdc:PBI-001-22.md) | Proposed | Track and manage execution states |
 | 1-23 | [Execution Error Handling](mdc:PBI-001-23.md) | Proposed | Comprehensive error handling for crew execution |

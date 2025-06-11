@@ -16,3 +16,4 @@ cryptography==45.0.3
 pytest==8.3.5
 scalar-fastapi==1.0.3
 xkcdpass==1.20.0
+crewai==0.121.1
