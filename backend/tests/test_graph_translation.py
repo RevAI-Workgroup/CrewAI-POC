@@ -186,10 +186,10 @@ class TestGraphTranslationService:
             elif "write" in task.description.lower():
                 writing_task = task
         
-                 assert research_task is not None
-         assert writing_task is not None
-         assert writing_task.context is not None
-         assert research_task in writing_task.context
+                assert research_task is not None
+        assert writing_task is not None
+        assert writing_task.context is not None
+        assert research_task in writing_task.context
     
     def test_translate_graph_with_no_data(self, translation_service):
         """Test handling of graph with no graph_data."""
