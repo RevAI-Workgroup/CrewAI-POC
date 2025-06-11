@@ -93,4 +93,26 @@ async def validate_token_only(
     if user_id is None:
         raise AuthenticationError("Invalid token payload")
     
-    return {"user_id": user_id, "payload": payload} 
+    return {"user_id": user_id, "payload": payload}
+
+
+async def get_current_user_websocket(token: str, db: Session = Depends(get_db)) -> Optional[User]:
+    """
+    Get current authenticated user from JWT token for WebSocket connections.
+    Used for WebSocket authentication where token comes as query parameter.
+    """
+    try:
+        payload = verify_token(token, "access")
+        
+        if payload is None:
+            return None
+        
+        user_id = payload.get("sub")
+        if user_id is None:
+            return None
+        
+        # Query user from database
+        user = db.query(User).filter(User.id == user_id).first()
+        return user
+    except Exception:
+        return None 
