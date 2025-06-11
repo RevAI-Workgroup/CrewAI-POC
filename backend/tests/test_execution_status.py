@@ -303,7 +303,7 @@ class TestExecutionStatusService:
             exec_mock.duration_seconds = 100.0 if exec_mock.status == ExecutionStatus.COMPLETED.value else None
             mock_executions.append(exec_mock)
         
-        self.mock_db.query.return_value.filter.return_value.all.return_value = mock_executions
+        self.mock_db.query.return_value.all.return_value = mock_executions
         
         # Execute
         stats = self.service.get_execution_statistics()

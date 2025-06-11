@@ -121,13 +121,17 @@ class ExecutionStatusService:
         if not execution:
             raise ValueError(f"Execution {execution_id} not found")
         
+        # Use getattr to safely access column values
+        started_at = getattr(execution, 'started_at', None)
+        completed_at = getattr(execution, 'completed_at', None)
+        
         return {
             "id": execution.id,
             "status": execution.status,
             "progress_percentage": execution.progress_percentage,
             "current_step": execution.current_step,
-            "started_at": execution.started_at.isoformat() if execution.started_at else None,
-            "completed_at": execution.completed_at.isoformat() if execution.completed_at else None,
+            "started_at": started_at.isoformat() if started_at else None,
+            "completed_at": completed_at.isoformat() if completed_at else None,
             "duration_seconds": execution.duration_seconds,
             "error_message": execution.error_message,
             "is_cancelled": execution.is_cancelled,
@@ -167,10 +171,10 @@ class ExecutionStatusService:
         since: Optional[datetime] = None
     ) -> List[Execution]:
         """Get executions filtered by status."""
-        query = self.db.query(Execution).filter(Execution.status == status.value)
+        query = self.db.query(Execution).filter(Execution.status == status.value)  # type: ignore[misc]
         
         if since:
-            query = query.filter(Execution.created_at >= since)
+            query = query.filter(Execution.created_at >= since)  # type: ignore[misc]
         
         if limit:
             query = query.limit(limit)
@@ -183,8 +187,8 @@ class ExecutionStatusService:
         
         return self.db.query(Execution).filter(
             and_(
-                Execution.status == ExecutionStatus.RUNNING.value,
-                Execution.started_at < timeout_threshold
+                Execution.status == ExecutionStatus.RUNNING.value,  # type: ignore[misc]
+                Execution.started_at < timeout_threshold  # type: ignore[misc]
             )
         ).all()
     
@@ -195,14 +199,18 @@ class ExecutionStatusService:
         
         for execution in stuck_executions:
             try:
-                self.update_execution_status(
-                    UUID(execution.id),
-                    ExecutionStatus.TIMEOUT,
-                    error_message=f"Execution timed out after {timeout_minutes} minutes"
-                )
-                timed_out.append(execution.id)
+                # Use getattr to safely access the id column value
+                execution_id_str = getattr(execution, 'id', None)
+                if execution_id_str:
+                    self.update_execution_status(
+                        UUID(execution_id_str),
+                        ExecutionStatus.TIMEOUT,
+                        error_message=f"Execution timed out after {timeout_minutes} minutes"
+                    )
+                    timed_out.append(execution_id_str)
             except Exception as e:
-                logger.error(f"Failed to timeout execution {execution.id}: {e}")
+                execution_id_str = getattr(execution, 'id', 'unknown')
+                logger.error(f"Failed to timeout execution {execution_id_str}: {e}")
         
         return timed_out
     
@@ -211,7 +219,7 @@ class ExecutionStatusService:
         query = self.db.query(Execution)
         
         if since:
-            query = query.filter(Execution.created_at >= since)
+            query = query.filter(Execution.created_at >= since)  # type: ignore[misc]
         
         executions = query.all()
         
@@ -222,19 +230,33 @@ class ExecutionStatusService:
             "success_rate": 0
         }
         
-        # Count by status
+        # Count by status - use getattr to safely access column values
         for status in ExecutionStatus:
-            stats["by_status"][status.value] = sum(1 for e in executions if e.status == status.value)
+            stats["by_status"][status.value] = sum(
+                1 for e in executions 
+                if getattr(e, 'status', None) == status.value
+            )
         
-        # Calculate averages
-        completed = [e for e in executions if e.status == ExecutionStatus.COMPLETED.value and e.duration_seconds]
+        # Calculate averages - use getattr for safe column access
+        completed = [
+            e for e in executions 
+            if (getattr(e, 'status', None) == ExecutionStatus.COMPLETED.value and 
+                getattr(e, 'duration_seconds', None) is not None)
+        ]
         if completed:
-            stats["avg_duration"] = sum(e.duration_seconds for e in completed) / len(completed)
+            duration_values = [getattr(e, 'duration_seconds', 0) for e in completed]
+            stats["avg_duration"] = sum(duration_values) / len(duration_values)
         
-        # Success rate
-        finished = [e for e in executions if e.status in [ExecutionStatus.COMPLETED.value, ExecutionStatus.FAILED.value]]
+        # Success rate - use getattr for safe column access
+        finished = [
+            e for e in executions 
+            if getattr(e, 'status', None) in [ExecutionStatus.COMPLETED.value, ExecutionStatus.FAILED.value]
+        ]
         if finished:
-            successful = [e for e in finished if e.status == ExecutionStatus.COMPLETED.value]
+            successful = [
+                e for e in finished 
+                if getattr(e, 'status', None) == ExecutionStatus.COMPLETED.value
+            ]
             stats["success_rate"] = len(successful) / len(finished)
         
         return stats
@@ -242,7 +264,7 @@ class ExecutionStatusService:
     def cancel_user_executions(self, user_id: UUID, reason: str = "User requested cancellation") -> List[str]:
         """Cancel all running executions for a user."""
         # Note: This would need a user_id field in Execution model
-        # For now, we'll return empty list as the model doesn't have user_id
+        # For now, we'll return empty list as the model doesn't have user_id field
         logger.warning("cancel_user_executions not implemented - Execution model needs user_id field")
         return []
     
@@ -252,11 +274,11 @@ class ExecutionStatusService:
         
         old_executions = self.db.query(Execution).filter(
             and_(
-                Execution.completed_at < cutoff_date,
+                Execution.completed_at < cutoff_date,  # type: ignore[misc]
                 or_(
-                    Execution.status == ExecutionStatus.COMPLETED.value,
-                    Execution.status == ExecutionStatus.FAILED.value,
-                    Execution.status == ExecutionStatus.CANCELLED.value
+                    Execution.status == ExecutionStatus.COMPLETED.value,  # type: ignore[misc]
+                    Execution.status == ExecutionStatus.FAILED.value,  # type: ignore[misc]
+                    Execution.status == ExecutionStatus.CANCELLED.value  # type: ignore[misc]
                 )
             )
         ).all()

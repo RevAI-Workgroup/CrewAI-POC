@@ -233,7 +233,7 @@ class ExecutionErrorService:
         retry_config = self.retry_configs.get(exec_error.category)
         should_retry = (
             exec_error.retry_recommended and
-            retry_config and
+            retry_config is not None and
             attempt <= retry_config.max_retries
         )
         
@@ -245,7 +245,7 @@ class ExecutionErrorService:
             "retry_delay": 0
         }
         
-        if should_retry:
+        if should_retry and retry_config is not None:
             delay = retry_config.get_delay(attempt - 1)
             result["retry_delay"] = delay
             result["next_attempt"] = attempt + 1
@@ -279,7 +279,9 @@ class ExecutionErrorService:
         if not execution:
             raise ValueError(f"Execution {execution_id} not found")
         
-        if execution.status != ExecutionStatus.FAILED.value:
+        # Check execution status using getattr to get the actual value
+        execution_status = getattr(execution, 'status', None)
+        if execution_status != ExecutionStatus.FAILED.value:
             raise ValueError(f"Execution {execution_id} is not in failed state")
         
         logger.info(f"Attempting recovery for execution {execution_id} using strategy: {recovery_strategy}")
@@ -313,10 +315,11 @@ class ExecutionErrorService:
     
     def get_error_statistics(self, since: Optional[datetime] = None) -> Dict[str, Any]:
         """Get error statistics for monitoring."""
-        query = self.db.query(Execution).filter(Execution.status == ExecutionStatus.FAILED.value)
+        # Use proper SQLAlchemy filter
+        query = self.db.query(Execution).filter(Execution.status == ExecutionStatus.FAILED.value)  # type: ignore[misc]
         
         if since:
-            query = query.filter(Execution.created_at >= since)
+            query = query.filter(Execution.created_at >= since)  # type: ignore[misc]
         
         failed_executions = query.all()
         
@@ -329,11 +332,13 @@ class ExecutionErrorService:
         }
         
         for execution in failed_executions:
-            if execution.error_details:
-                category = execution.error_details.get("category", "unknown")
-                severity = execution.error_details.get("severity", "unknown")
-                error_code = execution.error_details.get("error_code", "unknown")
-                recoverable = execution.error_details.get("recoverable", False)
+            # Check error_details using getattr to get the actual value
+            error_details = getattr(execution, 'error_details', None)
+            if error_details:
+                category = error_details.get("category", "unknown")
+                severity = error_details.get("severity", "unknown")
+                error_code = error_details.get("error_code", "unknown")
+                recoverable = error_details.get("recoverable", False)
                 
                 # Count by category
                 stats["by_category"][category] = stats["by_category"].get(category, 0) + 1
@@ -377,9 +382,10 @@ class ExecutionErrorService:
         """Get failed executions that are candidates for recovery."""
         cutoff_time = datetime.utcnow() - timedelta(minutes=min_age_minutes)
         
+        # Use proper SQLAlchemy filter with string interpolation for status
         return self.db.query(Execution).filter(
-            Execution.status == ExecutionStatus.FAILED.value,
-            Execution.completed_at < cutoff_time
+            Execution.status == ExecutionStatus.FAILED.value,  # type: ignore[misc]
+            Execution.completed_at < cutoff_time  # type: ignore[misc]
         ).limit(limit).all()
     
     def close(self):

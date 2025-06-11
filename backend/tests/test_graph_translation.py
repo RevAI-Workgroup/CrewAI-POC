@@ -8,8 +8,8 @@ import pytest
 from unittest.mock import Mock, MagicMock
 from crewai import Agent, Task, Crew, Process
 
-from ..services.graph_translation import GraphTranslationService, GraphTranslationError, GraphDataExtractor
-from ..models.graph import Graph
+from services.graph_translation import GraphTranslationService, GraphTranslationError, GraphDataExtractor
+from models.graph import Graph
 
 
 @pytest.fixture
@@ -181,12 +181,12 @@ class TestGraphTranslationService:
         research_task = None
         
         for task in crew.tasks:
-            if "research" in task.description.lower():
+            if task.description.startswith("Research the topic"):
                 research_task = task
-            elif "write" in task.description.lower():
+            elif task.description.startswith("Write content based"):
                 writing_task = task
         
-                assert research_task is not None
+        assert research_task is not None
         assert writing_task is not None
         assert writing_task.context is not None
         assert research_task in writing_task.context

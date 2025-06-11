@@ -352,11 +352,13 @@ def create_error_from_code(
             message or f"Execution error: {error_code.value}",
             error_code,
             category,
+            severity=ErrorSeverity.MEDIUM,
             details=details
         )
     else:
-        return error_class(
-            message or f"Execution error: {error_code.value}",
-            error_code,
-            details
+        # Note: Specific error classes don't take category parameter - they set it internally
+        return error_class(  # type: ignore[misc]
+            message=message or f"Execution error: {error_code.value}",
+            error_code=error_code,
+            details=details
         ) 

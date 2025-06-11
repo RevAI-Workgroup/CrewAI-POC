@@ -232,7 +232,7 @@ class GraphTranslationService:
                     tools=self._load_task_tools(task_data.get("tools", [])),
                     async_execution=task_data.get("async_execution", False),
                     output_file=task_data.get("output_file"),
-                    context=[]  # Will be populated in second pass
+                    context=None  # Will be populated in second pass
                 )
                 
                 tasks[task_id] = task

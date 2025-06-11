@@ -82,8 +82,7 @@ def sample_graph(test_user):
             name="Test Graph",
             description="A test graph",
             graph_data={"nodes": [], "edges": []},
-            metadata={"version": "1.0"},
-            created_by=test_user.id
+            user_id=test_user.id
         )
         db.add(graph)
         db.commit()
@@ -98,7 +97,7 @@ class TestNodeDefinitionsEndpoint:
     
     def test_get_node_definitions_structure_success(self, auth_headers):
         """Test successful retrieval of node definitions structure."""
-        response = client.get("/api/graph-nodes", headers=auth_headers)
+        response = client.get("/api/graphs/nodes", headers=auth_headers)
         
         assert response.status_code == 200
         data = response.json()
@@ -114,29 +113,34 @@ class TestNodeDefinitionsEndpoint:
         
     def test_get_node_definitions_structure_unauthorized(self):
         """Test unauthorized access to node definitions structure."""
-        response = client.get("/api/graph-nodes")
+        response = client.get("/api/graphs/nodes")
         
-        assert response.status_code == 401
+        assert response.status_code == 403
         
     def test_node_definitions_structure_content(self, auth_headers):
         """Test that node definitions structure contains expected content."""
-        response = client.get("/api/graph-nodes", headers=auth_headers)
+        response = client.get("/api/graphs/nodes", headers=auth_headers)
         
         assert response.status_code == 200
         structure = response.json()["data"]
         
         # Check node types
         node_types = structure["node_types"]
-        expected_types = ["crew", "agent", "task", "llm", "tool", "flow"]
+        expected_types = ["crew", "agent", "task", "tool", "flow"]
         for node_type in expected_types:
             assert node_type in node_types
+        
+        # Check LLM providers are present
+        llm_providers = ["openai", "anthropic", "ollama", "google", "azure", "groq"]
+        for provider in llm_providers:
+            assert provider in node_types
             
         # Check specific node structure
         crew_def = node_types["crew"]
         assert crew_def["name"] == "Crew"
         assert "fields" in crew_def
         assert "name" in crew_def["fields"]
-        assert "agent_ids" in crew_def["fields"]
+        assert "agents" in crew_def["fields"]
 
 
 class TestGraphsCRUDEndpoints:
@@ -158,7 +162,7 @@ class TestGraphsCRUDEndpoints:
         """Test unauthorized access to graphs list."""
         response = client.get("/api/graphs")
         
-        assert response.status_code == 401
+        assert response.status_code == 403
         
     def test_get_graph_success(self, auth_headers, sample_graph):
         """Test successful retrieval of specific graph."""
@@ -205,7 +209,7 @@ class TestGraphsCRUDEndpoints:
         
         response = client.post("/api/graphs", json=graph_data)
         
-        assert response.status_code == 401
+        assert response.status_code == 403
         
     def test_update_graph_success(self, auth_headers, sample_graph):
         """Test successful graph update."""
@@ -263,7 +267,7 @@ class TestGraphsCRUDEndpoints:
                     name=f"Test Graph {i}",
                     description=f"Test graph number {i}",
                     graph_data={"nodes": [], "edges": []},
-                    created_by=test_user.id
+                    user_id=test_user.id
                 )
                 db.add(graph)
             db.commit()

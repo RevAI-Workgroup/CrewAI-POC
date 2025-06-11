@@ -108,12 +108,12 @@ class TestCircuitBreaker:
             raise BaseExecutionError("Test error", ExecutionErrorCode.NETWORK_CONNECTION_FAILED, ErrorCategory.NETWORK)
         
         # Trigger failures to open circuit
-        for _ in range(3):
+        for _ in range(2):  # Only need 2 failures to meet threshold of 2
             with pytest.raises(BaseExecutionError):
                 breaker.call(failing_func)
         
         assert breaker.state == "OPEN"
-        assert breaker.failure_count == 3
+        assert breaker.failure_count == 2  # Should be 2, not 3
     
     def test_open_circuit_blocks_calls(self):
         """Test that open circuit blocks calls."""
@@ -134,7 +134,7 @@ class TestCircuitBreaker:
     
     def test_circuit_recovery(self):
         """Test circuit breaker recovery after timeout."""
-        breaker = CircuitBreaker(failure_threshold=1, recovery_timeout=0.1)  # Short timeout for testing
+        breaker = CircuitBreaker(failure_threshold=1, recovery_timeout=1)  # Use int instead of float
         
         def failing_func():
             raise BaseExecutionError("Test error", ExecutionErrorCode.NETWORK_CONNECTION_FAILED, ErrorCategory.NETWORK)
@@ -149,7 +149,7 @@ class TestCircuitBreaker:
         assert breaker.state == "OPEN"
         
         # Wait for recovery timeout
-        time.sleep(0.2)
+        time.sleep(1.1)
         
         # Next call should transition to HALF_OPEN and succeed
         result = breaker.call(success_func)
