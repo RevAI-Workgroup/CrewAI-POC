@@ -34,7 +34,7 @@ This document lists all tasks associated with PBI-001.
 | 1-24 | [Execution Testing](mdc:PBI-001-24.md) | Done | Testing framework for execution service |
 | 1-25 | [SSE Implementation](mdc:PBI-001-25.md) | Done | Server-Sent Events for real-time streaming |
 | 1-26 | [Real-time Status Updates](mdc:PBI-001-26.md) | Done | Live execution status via SSE |
-| 1-27 | [Message Handling](mdc:PBI-001-27.md) | Proposed | Message processing with execution triggers |
+| 1-27 | [Message Handling](mdc:PBI-001-27.md) | Done | Message processing with execution triggers |
 | 1-28 | [WebSocket Evaluation](mdc:PBI-001-28.md) | Proposed | Evaluate WebSocket vs SSE performance |
 | 1-29 | [Streaming Performance Testing](mdc:PBI-001-29.md) | Proposed | Performance tests for real-time features |
 | 1-30 | [Tool Repository Service](mdc:PBI-001-30.md) | Proposed | Foundation for tool management |
