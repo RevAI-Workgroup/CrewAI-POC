@@ -104,27 +104,42 @@ class TestExecuteCrewAsync:
         return execution
     
     @patch('services.async_execution_service.GraphTranslationService')
-    def test_execute_crew_async_success(self, mock_translation_service, mock_db, mock_graph, mock_execution):
+    @patch('services.async_execution_service.SessionLocal')
+    def test_execute_crew_async_success(self, mock_session_local, mock_translation_service, mock_graph, mock_execution):
         """Test successful crew execution."""
-        # Setup
+        # Setup mock database session
+        mock_db = Mock()
+        mock_session_local.return_value = mock_db
+        
+        # Setup mock execution
+        mock_execution.id = str(uuid4())
+        mock_execution.start_execution = Mock()
+        mock_execution.complete_execution = Mock()
+        
+        # Setup mock database queries
         mock_db.query.return_value.filter.return_value.first.return_value = mock_graph
         mock_db.add.return_value = None
         mock_db.commit.return_value = None
         
+        # Setup mock crew execution
         mock_crew = Mock()
+        mock_crew.kickoff.return_value = Mock()
         mock_crew.kickoff.return_value.raw = "execution result"
         mock_translation_service.return_value.translate_graph.return_value = mock_crew
         
-        # Create mock task context
-        with patch('services.async_execution_service.execute_crew_async') as mock_task:
+        # Mock the Execution constructor to return our mock
+        with patch('services.async_execution_service.Execution', return_value=mock_execution):
+            # Create mock task context
             mock_self = Mock()
+            mock_self.request = Mock()
             mock_self.request.id = "test-task-id"
             mock_self.update_state = Mock()
             
-            from services.async_execution_service import execute_crew_async
+            # Import the testable logic function
+            from services.async_execution_service import _execute_crew_logic
             
-            # Execute
-            result = execute_crew_async(
+            # Execute using the core logic function (bypasses Celery)
+            result = _execute_crew_logic(
                 mock_self,
                 str(uuid4()),
                 str(uuid4()),
@@ -136,6 +151,12 @@ class TestExecuteCrewAsync:
             assert result["status"] == "success"
             assert "execution_id" in result
             assert result["result"] == "execution result"
+            
+            # Verify mock calls
+            mock_execution.start_execution.assert_called_once()
+            mock_execution.complete_execution.assert_called_once()
+            mock_translation_service.assert_called_once()
+            mock_crew.kickoff.assert_called_once()
 
 
 class TestAsyncExecutionIntegration:
