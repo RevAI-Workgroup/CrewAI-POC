@@ -192,21 +192,53 @@ def _execute_crew_logic(
         
         logger.error(f"Crew execution failed: {error_msg}")
         
-        # Update execution with failure
-        if db is not None and execution_id is not None:
-            try:
-                execution_log = db.query(Execution).filter(Execution.id == execution_id).first()
-                if execution_log:
-                    execution_log.fail_execution(error_msg, {"traceback": error_traceback})
-                    db.commit()
-            except Exception as db_error:
-                logger.error(f"Failed to update execution log: {db_error}")
-        
-        # Retry logic
-        if hasattr(task_context, 'request') and hasattr(task_context, 'retry') and hasattr(task_context, 'max_retries'):
-            if task_context.request.retries < task_context.max_retries:
-                logger.info(f"Retrying task {task_context.request.id} (attempt {task_context.request.retries + 1})")
-                raise task_context.retry(exc=exc, countdown=60)
+        # Handle error with enhanced error service
+        try:
+            from services.execution_error_service import ExecutionErrorService
+            error_service = ExecutionErrorService(db)
+            
+            # Get current attempt number
+            current_attempt = 1
+            if hasattr(task_context, 'request') and hasattr(task_context.request, 'retries'):
+                current_attempt = task_context.request.retries + 1
+            
+            # Handle the error  
+            if execution_id is not None:
+                error_result = error_service.handle_execution_error(
+                    UUID(str(execution_id)),
+                    exc,
+                    current_attempt
+                )
+            else:
+                # Can't handle error without execution_id
+                raise exc
+            
+            # Retry logic based on error service recommendation
+            if (error_result.get("should_retry", False) and 
+                hasattr(task_context, 'request') and hasattr(task_context, 'retry') and hasattr(task_context, 'max_retries')):
+                
+                retry_delay = error_result.get("retry_delay", 60)
+                logger.info(f"Retrying task {task_context.request.id} in {retry_delay} seconds")
+                raise task_context.retry(exc=exc, countdown=retry_delay)
+            
+            error_service.close()
+            
+        except ImportError:
+            # Fallback to original error handling if error service not available
+            if db is not None and execution_id is not None:
+                try:
+                    execution_log = db.query(Execution).filter(Execution.id == execution_id).first()
+                    if execution_log:
+                        execution_log.fail_execution(error_msg, {"traceback": error_traceback})
+                        db.commit()
+                except Exception as db_error:
+                    logger.error(f"Failed to update execution log: {db_error}")
+            
+            # Original retry logic
+            if hasattr(task_context, 'request') and hasattr(task_context, 'retry') and hasattr(task_context, 'max_retries'):
+                if task_context.request.retries < task_context.max_retries:
+                    logger.info(f"Retrying task {task_context.request.id} (attempt {task_context.request.retries + 1})")
+                    raise task_context.retry(exc=exc, countdown=60)
         
         return {
             "execution_id": str(execution_id) if execution_id is not None else None,
