@@ -17,3 +17,5 @@ pytest==8.3.5
 scalar-fastapi==1.0.3
 xkcdpass==1.20.0
 crewai==0.121.1
+celery==5.4.0
+redis==5.2.1

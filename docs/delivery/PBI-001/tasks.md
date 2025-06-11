@@ -28,7 +28,7 @@ This document lists all tasks associated with PBI-001.
 | 1-18 | [Graph Testing](mdc:PBI-001-18.md) | Skipped | Testing framework for graph validation |
 | 1-19 | [CrewAI Integration](mdc:PBI-001-19.md) | Done | Research and integrate CrewAI 0.121.1 |
 | 1-20 | [Graph to CrewAI Translation](mdc:PBI-001-20.md) | Done | Service to convert graphs to CrewAI objects |
-| 1-21 | [Async Execution Service](mdc:PBI-001-21.md) | Proposed | Celery-based async crew execution |
+| 1-21 | [Async Execution Service](mdc:tasks/PBI-001-21.md) | Review | Celery-based async crew execution |
 | 1-22 | [Execution Status Management](mdc:PBI-001-22.md) | Proposed | Track and manage execution states |
 | 1-23 | [Execution Error Handling](mdc:PBI-001-23.md) | Proposed | Comprehensive error handling for crew execution |
 | 1-24 | [Execution Testing](mdc:PBI-001-24.md) | Proposed | Testing framework for execution service |
