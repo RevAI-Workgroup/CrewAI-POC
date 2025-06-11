@@ -6,6 +6,7 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 from uuid import uuid4, UUID
 from datetime import datetime
+import os
 
 from services.async_execution_service import AsyncExecutionService
 from models.execution import Execution, ExecutionStatus
@@ -165,16 +166,39 @@ class TestAsyncExecutionIntegration:
     @pytest.mark.integration
     def test_full_execution_flow(self):
         """Test complete execution flow (requires Redis)."""
-        # This test would require actual Redis and Celery setup
-        # Skip in unit tests
-        pytest.skip("Integration test requires Redis setup")
+        # Only run if environment variables are set for integration testing
+        if not os.environ.get('CELERY_BROKER_URL'):
+            pytest.skip("Integration test requires CELERY_BROKER_URL environment variable")
+        
+        # Test basic Celery connectivity
+        service = AsyncExecutionService()
+        
+        # Test task queueing
+        try:
+            from celery_app import celery_app
+            # Queue a simple health check task
+            result = celery_app.send_task('celery_app.health_check')
+            assert result.id is not None
+            assert result.status == 'PENDING'
+            print(f"✅ Integration test: Task queued successfully with ID {result.id}")
+        except Exception as e:
+            pytest.fail(f"Failed to queue health check task: {e}")
     
     @pytest.mark.integration 
     def test_error_handling_flow(self):
         """Test error handling in execution flow."""
-        # This test would verify error scenarios
-        # Skip in unit tests
-        pytest.skip("Integration test requires Redis setup")
+        # Only run if environment variables are set for integration testing
+        if not os.environ.get('CELERY_BROKER_URL'):
+            pytest.skip("Integration test requires CELERY_BROKER_URL environment variable")
+            
+        # Test service initialization with Redis
+        service = AsyncExecutionService()
+        
+        # Test that we can get task status for non-existent task
+        status = service.get_task_status("non-existent-task-id")
+        assert status["status"] == "PENDING"  # Non-existent tasks show as PENDING
+        assert status["task_id"] == "non-existent-task-id"
+        print("✅ Integration test: Error handling verified")
 
 
 if __name__ == "__main__":
