@@ -70,6 +70,41 @@ class TestAsyncExecutionService:
         # Verify
         assert result is True
         mock_celery.control.revoke.assert_called_once_with("test-task-id", terminate=True)
+    
+    @patch('services.async_execution_service.celery_app')
+    def test_get_task_status_redis_unavailable(self, mock_celery):
+        """Test task status when Redis is unavailable."""
+        # Setup - simulate Redis connection error
+        mock_result = Mock()
+        mock_celery.AsyncResult.side_effect = Exception("Redis connection failed")
+        
+        # Execute
+        status = self.service.get_task_status("test-task-id")
+        
+        # Verify - should return PENDING for consistency
+        assert status["status"] == "PENDING"
+        assert status["task_id"] == "test-task-id"
+        assert "error" in status
+    
+    @patch('services.async_execution_service.CELERY_AVAILABLE', False)
+    def test_service_without_celery(self):
+        """Test service behavior when Celery is not available."""
+        service = AsyncExecutionService()
+        
+        # Test queue_execution raises error
+        with pytest.raises(RuntimeError, match="Celery is not available"):
+            service.queue_execution(
+                self.graph_id, self.thread_id, self.user_id, self.inputs
+            )
+        
+        # Test get_task_status returns unavailable
+        status = service.get_task_status("test-task-id")
+        assert status["status"] == "UNAVAILABLE"
+        assert status["task_id"] == "test-task-id"
+        
+        # Test cancel_task returns False
+        result = service.cancel_task("test-task-id")
+        assert result is False
 
 
 class TestExecuteCrewAsync:
@@ -166,9 +201,18 @@ class TestAsyncExecutionIntegration:
     @pytest.mark.integration
     def test_full_execution_flow(self):
         """Test complete execution flow (requires Redis)."""
-        # Only run if environment variables are set for integration testing
-        if not os.environ.get('CELERY_BROKER_URL'):
-            pytest.skip("Integration test requires CELERY_BROKER_URL environment variable")
+        # Set up test environment for Redis connection
+        test_redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+        os.environ['CELERY_BROKER_URL'] = test_redis_url
+        os.environ['CELERY_RESULT_BACKEND'] = test_redis_url
+        
+        # Only run if Redis is actually available
+        try:
+            import redis
+            r = redis.from_url(test_redis_url)
+            r.ping()
+        except Exception as e:
+            pytest.skip(f"Integration test requires Redis server: {e}")
         
         # Test basic Celery connectivity
         service = AsyncExecutionService()
@@ -176,6 +220,12 @@ class TestAsyncExecutionIntegration:
         # Test task queueing
         try:
             from celery_app import celery_app
+            # Reinitialize celery with test Redis URL
+            celery_app.conf.update(
+                broker_url=test_redis_url,
+                result_backend=test_redis_url
+            )
+            
             # Queue a simple health check task
             result = celery_app.send_task('celery_app.health_check')
             assert result.id is not None
@@ -187,16 +237,33 @@ class TestAsyncExecutionIntegration:
     @pytest.mark.integration 
     def test_error_handling_flow(self):
         """Test error handling in execution flow."""
-        # Only run if environment variables are set for integration testing
-        if not os.environ.get('CELERY_BROKER_URL'):
-            pytest.skip("Integration test requires CELERY_BROKER_URL environment variable")
+        # Set up test environment for Redis connection
+        test_redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+        os.environ['CELERY_BROKER_URL'] = test_redis_url
+        os.environ['CELERY_RESULT_BACKEND'] = test_redis_url
+        
+        # Only run if Redis is actually available
+        try:
+            import redis
+            r = redis.from_url(test_redis_url)
+            r.ping()
+        except Exception as e:
+            pytest.skip(f"Integration test requires Redis server: {e}")
             
         # Test service initialization with Redis
         service = AsyncExecutionService()
         
+        # Reinitialize celery with test Redis URL
+        from celery_app import celery_app
+        celery_app.conf.update(
+            broker_url=test_redis_url,
+            result_backend=test_redis_url
+        )
+        
         # Test that we can get task status for non-existent task
         status = service.get_task_status("non-existent-task-id")
-        assert status["status"] == "PENDING"  # Non-existent tasks show as PENDING
+        # When Redis is available, non-existent tasks show as PENDING
+        assert status["status"] == "PENDING"
         assert status["task_id"] == "non-existent-task-id"
         print("✅ Integration test: Error handling verified")
 

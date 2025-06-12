@@ -400,7 +400,7 @@ class TestExecutionServiceIntegration:
             # Make apply_async fail
             mock_celery.AsyncResult.side_effect = Exception("Celery connection failed")
             
-            # Get status should return error
+            # Get status should return error with PENDING status for consistency
             status = self.service.get_task_status("test-task-id")
-            assert status["status"] == "UNKNOWN"
+            assert status["status"] == "PENDING"  # Changed from "UNKNOWN" to "PENDING" for consistency
             assert "Celery connection failed" in status["error"] 

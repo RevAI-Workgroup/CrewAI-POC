@@ -1,4 +1,4 @@
-# Python cache files
+# Python cache and compiled files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -19,6 +19,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # Virtual environments
 .env
@@ -29,14 +30,52 @@ ENV/
 env.bak/
 venv.bak/
 
-# IDE files
+# IDE and editor files
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.DS_Store
+Thumbs.db
 
-# OS files
+# Git
+.git/
+.gitignore
+
+# Testing
+.coverage
+.pytest_cache/
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs and temporary files
+*.log
+.log
+tmp/
+temp/
+
+# Documentation
+docs/
+*.md
+*.rst
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+docker-compose*.yml
+Dockerfile*
+
+# OS generated files
 .DS_Store
 .DS_Store?
 ._*
@@ -45,30 +84,27 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 
-# Git
-.git/
-.gitignore
+# Node.js (if any)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Pytest
-.pytest_cache/
-.coverage
-htmlcov/
+# Development tools
+.mypy_cache/
+.pre-commit-config.yaml
+.flake8
+.isort.cfg
 
-# Database files
-*.db
-*.sqlite3
+# Performance and profiling
+.prof
+prof/
 
-# Log files
-*.log
+# Local environment files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# Docker files
-Dockerfile
-.dockerignore
-
-# Documentation
-*.md
-docs/
-
-# Test files
-tests/
-test_*/ 
+# Alembic versions (keep alembic/ but exclude specific version files if needed)
+alembic/versions/*.pyc 

@@ -1,0 +1,354 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run security scans daily at 3 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  # Dependency vulnerability scanning
+  dependency-scan:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component: [backend, frontend]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run Trivy vulnerability scanner for ${{ matrix.component }}
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: './${{ matrix.component }}'
+          format: 'sarif'
+          output: 'trivy-${{ matrix.component }}-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+      
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-${{ matrix.component }}-results.sarif'
+          category: 'trivy-${{ matrix.component }}'
+
+  # Docker image security scanning
+  docker-security:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component: [backend, frontend]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Docker image for scanning
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.component }}
+          target: production
+          push: false
+          tags: crewai-${{ matrix.component }}:security-scan
+          cache-from: type=gha,scope=${{ matrix.component }}-security
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}-security
+      
+      - name: Run Trivy vulnerability scanner on Docker image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'crewai-${{ matrix.component }}:security-scan'
+          format: 'sarif'
+          output: 'trivy-docker-${{ matrix.component }}-results.sarif'
+          severity: 'CRITICAL,HIGH'
+      
+      - name: Upload Docker image scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-docker-${{ matrix.component }}-results.sarif'
+          category: 'trivy-docker-${{ matrix.component }}'
+
+  # Python security analysis
+  python-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      
+      - name: Install dependencies
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install safety bandit
+      
+      - name: Run Safety check for known vulnerabilities
+        run: |
+          cd backend
+          safety check --json --output safety-report.json || true
+      
+      - name: Run Bandit security linter
+        run: |
+          cd backend
+          bandit -r . -f json -o bandit-report.json || true
+      
+      - name: Upload security reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: python-security-reports
+          path: |
+            backend/safety-report.json
+            backend/bandit-report.json
+
+  # Frontend security analysis
+  frontend-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      
+      - name: Install dependencies
+        run: |
+          cd frontend
+          bun install --frozen-lockfile
+      
+      - name: Run npm audit
+        run: |
+          cd frontend
+          bun audit --json > audit-report.json || true
+      
+      - name: Install and run ESLint security plugin
+        run: |
+          cd frontend
+          bun add -D eslint-plugin-security
+          echo '{"extends": ["plugin:security/recommended"], "plugins": ["security"]}' > .eslintrc-security.json
+          bunx eslint . -c .eslintrc-security.json -f json -o eslint-security-report.json || true
+      
+      - name: Upload frontend security reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-security-reports
+          path: |
+            frontend/audit-report.json
+            frontend/eslint-security-report.json
+
+  # CodeQL analysis
+  codeql-analysis:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'python', 'javascript' ]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-and-quality
+      
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v2
+      
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+        with:
+          category: "/language:${{matrix.language}}"
+
+  # Secret scanning
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Run TruffleHog OSS
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified
+
+  # OWASP Dependency Check
+  owasp-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'CrewAI'
+          path: '.'
+          format: 'ALL'
+          args: >
+            --enableRetired
+            --enableExperimental
+            --failOnCVSS 8
+      
+      - name: Upload OWASP Dependency Check results
+        uses: actions/upload-artifact@v3
+        with:
+          name: owasp-dependency-check-reports
+          path: reports/
+
+  # License compliance check
+  license-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      
+      - name: Install license checker
+        run: |
+          pip install pip-licenses
+      
+      - name: Check Python dependencies licenses
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          pip-licenses --format=json --output-file=python-licenses.json
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      
+      - name: Check Node.js dependencies licenses
+        run: |
+          cd frontend
+          bun install --frozen-lockfile
+          npx license-checker --json --out javascript-licenses.json
+      
+      - name: Upload license reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: license-reports
+          path: |
+            backend/python-licenses.json
+            frontend/javascript-licenses.json
+
+  # Container security best practices check
+  container-security:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component: [backend, frontend]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.component }}
+          target: production
+          push: false
+          tags: crewai-${{ matrix.component }}:security-test
+      
+      - name: Run Dockle for container security
+        run: |
+          VERSION=$(curl --silent "https://api.github.com/repos/goodwithtech/dockle/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          curl -L -o dockle.deb https://github.com/goodwithtech/dockle/releases/download/${VERSION}/dockle_${VERSION:1}_Linux-64bit.deb
+          sudo dpkg -i dockle.deb
+          dockle --format json --output dockle-${{ matrix.component }}-report.json crewai-${{ matrix.component }}:security-test || true
+      
+      - name: Upload Dockle reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: dockle-reports
+          path: dockle-${{ matrix.component }}-report.json
+
+  # Security summary and notification
+  security-summary:
+    runs-on: ubuntu-latest
+    needs: [dependency-scan, docker-security, python-security, frontend-security, codeql-analysis, secret-scan, owasp-scan, license-check, container-security]
+    if: always()
+    
+    steps:
+      - name: Create security summary
+        run: |
+          echo "# Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Scan Type | Status | Notes |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Dependency Scan | ${{ needs.dependency-scan.result || 'skipped' }} | Trivy filesystem scan |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Security | ${{ needs.docker-security.result || 'skipped' }} | Container image scan |" >> $GITHUB_STEP_SUMMARY
+          echo "| Python Security | ${{ needs.python-security.result || 'skipped' }} | Safety + Bandit |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend Security | ${{ needs.frontend-security.result || 'skipped' }} | npm audit + ESLint |" >> $GITHUB_STEP_SUMMARY
+          echo "| CodeQL Analysis | ${{ needs.codeql-analysis.result || 'skipped' }} | GitHub CodeQL |" >> $GITHUB_STEP_SUMMARY
+          echo "| Secret Scanning | ${{ needs.secret-scan.result || 'skipped' }} | TruffleHog |" >> $GITHUB_STEP_SUMMARY
+          echo "| OWASP Check | ${{ needs.owasp-scan.result || 'skipped' }} | Dependency Check |" >> $GITHUB_STEP_SUMMARY
+          echo "| License Check | ${{ needs.license-check.result || 'skipped' }} | License compliance |" >> $GITHUB_STEP_SUMMARY
+          echo "| Container Security | ${{ needs.container-security.result || 'skipped' }} | Dockle |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔒 **Security scan completed at**: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "📋 **View detailed results in Security tab**: https://github.com/${{ github.repository }}/security" >> $GITHUB_STEP_SUMMARY
+      
+      - name: Check for critical failures
+        run: |
+          CRITICAL_FAILURES=0
+          
+          if [[ "${{ needs.dependency-scan.result }}" == "failure" ]]; then
+            echo "⚠️ Critical: Dependency scan failed"
+            CRITICAL_FAILURES=$((CRITICAL_FAILURES + 1))
+          fi
+          
+          if [[ "${{ needs.docker-security.result }}" == "failure" ]]; then
+            echo "⚠️ Critical: Docker security scan failed"
+            CRITICAL_FAILURES=$((CRITICAL_FAILURES + 1))
+          fi
+          
+          if [[ "${{ needs.codeql-analysis.result }}" == "failure" ]]; then
+            echo "⚠️ Critical: CodeQL analysis failed"
+            CRITICAL_FAILURES=$((CRITICAL_FAILURES + 1))
+          fi
+          
+          if [[ "${{ needs.secret-scan.result }}" == "failure" ]]; then
+            echo "🚨 CRITICAL: Secret scanning detected issues!"
+            CRITICAL_FAILURES=$((CRITICAL_FAILURES + 1))
+          fi
+          
+          if [[ $CRITICAL_FAILURES -gt 0 ]]; then
+            echo "❌ Security scan failed with $CRITICAL_FAILURES critical issues"
+            exit 1
+          else
+            echo "✅ All security scans passed"
+          fi 

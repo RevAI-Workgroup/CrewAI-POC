@@ -1,25 +1,45 @@
-# Dependencies
+# Node.js dependencies and cache
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+lerna-debug.log*
+.npm
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
 
-# Production build (handled separately)
+# Bun
+.bun
+
+# Build outputs
 dist/
+build/
+out/
+.next/
+.nuxt/
+.output/
+.vitepress/cache
+.vitepress/dist
 
-# Environment variables
+# Environment files
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env.*.local
 
-# IDE files
+# IDE and editor files
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.vscode/settings.json
+.history/
 
 # OS generated files
 .DS_Store
@@ -30,46 +50,111 @@ dist/
 ehthumbs.db
 Thumbs.db
 
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Testing and coverage
+coverage/
+.nyc_output
+.coverage
+*.lcov
+test-results/
+playwright-report/
+test-results/
+
+# Storybook
+storybook-static/
+
+# TypeScript
+*.tsbuildinfo
+
+# ESLint
+.eslintcache
+
+# Prettier
+.prettierignore
+
+# Husky
+.husky/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Documentation
+*.md
+docs/
+README*
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+docker-compose*.yml
+Dockerfile*
+
 # Logs
-logs/
 *.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Runtime data
-pids/
+pids
 *.pid
 *.seed
 *.pid.lock
 
-# Coverage directory used by tools like istanbul
-coverage/
+# Dependency directories
+jspm_packages/
 
-# Testing
-.nyc_output/
+# Optional npm cache directory
+.npm
 
-# Git
-.git/
-.gitignore
+# Optional eslint cache
+.eslintcache
 
-# Documentation
-README.md
-*.md
+# Optional REPL history
+.node_repl_history
 
-# Cache
-.cache/
-.parcel-cache/
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Storybook build outputs
+.out
+.storybook-out
 
 # Temporary folders
 tmp/
 temp/
 
-# Husky
-.husky/
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# Local development
-.eslintcache
-.prettierignore
-.prettierrc
-eslint.config.js
-
-# TypeScript build output
-*.tsbuildinfo 
+# Vite
+vite.config.ts.timestamp-*
+vite.config.js.timestamp-* 

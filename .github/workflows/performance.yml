@@ -1,0 +1,385 @@
+name: Performance Testing
+
+on:
+  schedule:
+    # Run performance tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test-type:
+        description: 'Type of performance test to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - backend-only
+          - load-test
+          - benchmark
+      duration:
+        description: 'Test duration in minutes'
+        required: false
+        default: '10'
+      concurrency:
+        description: 'Number of concurrent users/requests'
+        required: false
+        default: '10'
+
+env:
+  DOCKER_BUILDKIT: 1
+
+jobs:
+  # Backend performance benchmarks
+  backend-performance:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.test-type == 'all' || github.event.inputs.test-type == 'backend-only' || github.event.inputs.test-type == 'benchmark'
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: crewai_perf
+          POSTGRES_USER: crewai_perf
+          POSTGRES_PASSWORD: perf_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+          cache: 'pip'
+          cache-dependency-path: 'backend/requirements.txt'
+      
+      - name: Install dependencies
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Run performance benchmarks
+        env:
+          DATABASE_URL: postgresql://crewai_perf:perf_password@localhost:5432/crewai_perf
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: perf-secret-key-for-testing-only
+          ENCRYPTION_KEY: perf-encryption-key-32-chars-long!
+        run: |
+          cd backend
+          pytest tests/performance/ \
+            --benchmark-only \
+            --benchmark-json=benchmark-results.json \
+            --benchmark-min-rounds=5 \
+            --benchmark-max-time=300 \
+            --benchmark-warmup=on \
+            --benchmark-sort=mean \
+            --benchmark-group-by=group
+      
+      - name: Generate performance report
+        run: |
+          cd backend
+          python -c "
+          import json
+          import sys
+          
+          try:
+              with open('benchmark-results.json', 'r') as f:
+                  data = json.load(f)
+              
+              benchmarks = data['benchmarks']
+              
+              print('# Performance Benchmark Results')
+              print('| Test | Mean (ms) | Min (ms) | Max (ms) | StdDev | Rounds |')
+              print('|------|-----------|----------|----------|--------|--------|')
+              
+              for bench in benchmarks:
+                  stats = bench['stats']
+                  name = bench['name'][:50] + '...' if len(bench['name']) > 50 else bench['name']
+                  mean = f\"{stats['mean']*1000:.2f}\"
+                  min_time = f\"{stats['min']*1000:.2f}\"
+                  max_time = f\"{stats['max']*1000:.2f}\"
+                  stddev = f\"{stats['stddev']*1000:.2f}\"
+                  rounds = stats['rounds']
+                  print(f'| {name} | {mean} | {min_time} | {max_time} | {stddev} | {rounds} |')
+          
+          except Exception as e:
+              print(f'Error generating report: {e}')
+              sys.exit(1)
+          " > performance-report.md
+      
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v3
+        with:
+          name: backend-benchmark-results
+          path: |
+            backend/benchmark-results.json
+            backend/performance-report.md
+      
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('backend/performance-report.md', 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🚀 Performance Test Results\n\n${report}`
+            });
+
+  # Load testing with Docker environment
+  load-testing:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.test-type == 'all' || github.event.inputs.test-type == 'load-test'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Start test environment
+        run: |
+          cd docker
+          docker-compose -f docker-compose.test.yml up -d
+          sleep 30  # Wait for services to be ready
+      
+      - name: Install k6 for load testing
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+      
+      - name: Create load test script
+        run: |
+          cat > load-test.js << 'EOF'
+          import http from 'k6/http';
+          import { check, sleep } from 'k6';
+          
+          export let options = {
+            stages: [
+              { duration: '2m', target: ${{ github.event.inputs.concurrency || 10 }} },
+              { duration: '${{ github.event.inputs.duration || 10 }}m', target: ${{ github.event.inputs.concurrency || 10 }} },
+              { duration: '2m', target: 0 },
+            ],
+          };
+          
+          export default function() {
+            // Health check
+            let response = http.get('http://localhost:8000/health');
+            check(response, {
+              'status is 200': (r) => r.status === 200,
+              'response time < 500ms': (r) => r.timings.duration < 500,
+            });
+            
+            // API endpoints testing
+            response = http.get('http://localhost:8000/api/v1/health');
+            check(response, {
+              'API health status is 200': (r) => r.status === 200,
+            });
+            
+            sleep(1);
+          }
+          
+          export function handleSummary(data) {
+            return {
+              'load-test-results.json': JSON.stringify(data, null, 2),
+            };
+          }
+          EOF
+      
+      - name: Run load test
+        run: |
+          k6 run load-test.js --out json=load-test-results.json
+      
+      - name: Generate load test report
+        run: |
+          python3 -c "
+          import json
+          import sys
+          
+          try:
+              with open('load-test-results.json', 'r') as f:
+                  lines = f.readlines()
+              
+              # Parse the last line which contains the summary
+              summary_line = lines[-1]
+              data = json.loads(summary_line)
+              
+              if data['type'] == 'Point' and 'data' in data:
+                  metrics = data['data']
+                  
+                  print('# Load Test Results')
+                  print('## Summary')
+                  print(f'- **Total Requests**: {metrics.get(\"http_reqs\", {}).get(\"count\", \"N/A\")}')
+                  print(f'- **Failed Requests**: {metrics.get(\"http_req_failed\", {}).get(\"rate\", 0)*100:.2f}%')
+                  print(f'- **Average Response Time**: {metrics.get(\"http_req_duration\", {}).get(\"avg\", \"N/A\")} ms')
+                  print(f'- **95th Percentile**: {metrics.get(\"http_req_duration\", {}).get(\"p(95)\", \"N/A\")} ms')
+                  print(f'- **Requests per Second**: {metrics.get(\"http_reqs\", {}).get(\"rate\", \"N/A\")}')
+          except Exception as e:
+              print(f'Error generating load test report: {e}')
+              # Create a basic report anyway
+              print('# Load Test Results')
+              print('Load test completed. Check artifacts for detailed results.')
+          " > load-test-report.md
+      
+      - name: Stop test environment
+        if: always()
+        run: |
+          cd docker
+          docker-compose -f docker-compose.test.yml down -v
+      
+      - name: Upload load test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: load-test-results
+          path: |
+            load-test-results.json
+            load-test-report.md
+
+  # Frontend performance testing
+  frontend-performance:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.test-type == 'all'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      
+      - name: Install dependencies
+        run: |
+          cd frontend
+          bun install --frozen-lockfile
+      
+      - name: Build application
+        run: |
+          cd frontend
+          bun run build
+      
+      - name: Install Lighthouse CI
+        run: npm install -g @lhci/cli
+      
+      - name: Setup test server
+        run: |
+          cd frontend
+          npx serve -s dist -l 3000 &
+          sleep 5
+      
+      - name: Run Lighthouse CI
+        run: |
+          lhci autorun --config.ci.collect.url="http://localhost:3000" \
+            --config.ci.collect.settings.chromeFlags="--no-sandbox --disable-dev-shm-usage" \
+            --config.ci.upload.target=filesystem \
+            --config.ci.upload.outputDir=lighthouse-results
+      
+      - name: Upload Lighthouse results
+        uses: actions/upload-artifact@v3
+        with:
+          name: lighthouse-results
+          path: lighthouse-results/
+
+  # Performance regression detection
+  compare-performance:
+    runs-on: ubuntu-latest
+    needs: [backend-performance]
+    if: always() && needs.backend-performance.result == 'success'
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      
+      - name: Download current benchmark results
+        uses: actions/download-artifact@v3
+        with:
+          name: backend-benchmark-results
+          path: current/
+      
+      - name: Download previous benchmark results
+        continue-on-error: true
+        run: |
+          # Try to get previous results from main branch
+          mkdir -p previous/
+          # This would typically fetch from a storage location or previous run
+          echo "Previous benchmark comparison would be implemented here"
+      
+      - name: Compare performance
+        run: |
+          python3 -c "
+          import json
+          import os
+          
+          print('# Performance Comparison')
+          
+          if os.path.exists('current/benchmark-results.json'):
+              with open('current/benchmark-results.json', 'r') as f:
+                  current = json.load(f)
+              
+              print('## Current Performance Metrics')
+              print('Performance benchmarks completed successfully.')
+              print('See detailed results in artifacts.')
+              
+              # Here you would implement actual comparison logic
+              # comparing with previous runs and detecting regressions
+          else:
+              print('No current benchmark results found.')
+          " > performance-comparison.md
+      
+      - name: Upload comparison results
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-comparison
+          path: performance-comparison.md
+
+  # Notification job
+  notify-results:
+    runs-on: ubuntu-latest
+    needs: [backend-performance, load-testing, frontend-performance, compare-performance]
+    if: always()
+    
+    steps:
+      - name: Create summary
+        run: |
+          echo "# Performance Testing Summary" > summary.md
+          echo "" >> summary.md
+          echo "| Test Type | Status | Duration |" >> summary.md
+          echo "|-----------|--------|----------|" >> summary.md
+          echo "| Backend Benchmarks | ${{ needs.backend-performance.result || 'skipped' }} | - |" >> summary.md
+          echo "| Load Testing | ${{ needs.load-testing.result || 'skipped' }} | ${{ github.event.inputs.duration || '10' }} min |" >> summary.md
+          echo "| Frontend Performance | ${{ needs.frontend-performance.result || 'skipped' }} | - |" >> summary.md
+          echo "| Performance Comparison | ${{ needs.compare-performance.result || 'skipped' }} | - |" >> summary.md
+          echo "" >> summary.md
+          echo "📊 **Performance test completed at**: $(date)" >> summary.md
+          echo "🔗 **Workflow run**: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> summary.md
+      
+      - name: Upload summary
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-summary
+          path: summary.md 

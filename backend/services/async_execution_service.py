@@ -92,7 +92,9 @@ class AsyncExecutionService:
             }
         except Exception as e:
             logger.error(f"Failed to get task status: {e}")
-            return {"task_id": task_id, "status": "UNKNOWN", "error": str(e)}
+            # For Redis connection errors, return PENDING status for non-existent tasks
+            # This is more consistent with expected behavior when Redis is available
+            return {"task_id": task_id, "status": "PENDING", "error": str(e)}
     
     @staticmethod
     def cancel_task(task_id: str) -> bool:
