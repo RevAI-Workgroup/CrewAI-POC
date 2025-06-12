@@ -6,7 +6,7 @@ import asyncio
 import aiohttp
 import time
 import pytest
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from tests.performance.utils.metrics import MetricsCollector
 
 
@@ -17,9 +17,9 @@ class SSEClient:
         self.base_url = base_url
         self.token = token
         self.client_id = client_id
-        self.session: aiohttp.ClientSession = None
-        self.connection_id: str = None
-        self.metrics_collector: MetricsCollector = None
+        self.session: Optional[aiohttp.ClientSession] = None
+        self.connection_id: Optional[str] = None
+        self.metrics_collector: Optional[MetricsCollector] = None
     
     async def connect(self, metrics_collector: MetricsCollector) -> bool:
         """Establish SSE connection."""

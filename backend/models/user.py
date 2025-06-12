@@ -35,6 +35,7 @@ class User(BaseModel):
     api_keys = relationship("APIKey", back_populates="user")
     graphs = relationship("Graph", back_populates="user")
     metrics = relationship("Metric", back_populates="user")
+    tools = relationship("Tool", back_populates="user")
     
     def get_display_name(self) -> str:
         """Get user's display name"""

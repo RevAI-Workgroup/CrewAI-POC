@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from models import (
-    User, UserRole, APIKey, APIKeyType, Graph, Thread, ThreadStatus,
+    User, UserRole, APIKey, APIKeyType, Tool, Graph, Thread, ThreadStatus,
     Message, MessageType, MessageStatus, Execution, ExecutionStatus, 
     ExecutionPriority, Metric, MetricType, MetricCategory
 )
@@ -56,6 +56,7 @@ class DatabaseSeeder:
             # Seed in dependency order
             users = self.seed_users()
             api_keys = self.seed_api_keys(users)
+            tools = self.seed_tools(users)
             graphs = self.seed_graphs(users)
             threads = self.seed_threads(users, graphs)
             messages = self.seed_messages(users, threads)
@@ -102,6 +103,11 @@ class DatabaseSeeder:
         
         try:
             self.session.query(APIKey).delete()
+        except Exception:
+            pass  # Table might not exist yet
+        
+        try:
+            self.session.query(Tool).delete()
         except Exception:
             pass  # Table might not exist yet
         
@@ -226,6 +232,109 @@ class DatabaseSeeder:
         
         self.session.flush()
         return created_keys
+    
+    def seed_tools(self, users: List[User]) -> List[Tool]:
+        """Seed sample tools"""
+        print("🔧 Seeding tools...")
+        
+        from services.tools.hello_world_tool import HelloWorldTool
+        
+        created_tools = []
+        
+        # Create hello world tool for the admin user
+        admin_user = None
+        for u in users:
+            if getattr(u, 'role') == UserRole.ADMIN:
+                admin_user = u
+                break
+        if admin_user is None:
+            admin_user = users[0]
+        
+        hello_world_tool = HelloWorldTool()
+        tool_info = hello_world_tool.get_tool_info()
+        
+        # Check if tool already exists
+        existing_tool = self.session.query(Tool).filter(
+            Tool.name == tool_info["name"],
+            Tool.user_id == admin_user.id
+        ).first()
+        
+        if not existing_tool:
+            # Create the implementation code for the database
+            implementation_code = '''
+def execute(parameters):
+    """Execute the Hello World tool"""
+    import time
+    from datetime import datetime
+    
+    start_time = time.time()
+    
+    try:
+        # Extract parameters
+        name = parameters.get("name", "").strip()
+        greeting_style = parameters.get("greeting_style", "casual")
+        include_time = parameters.get("include_time", False)
+        
+        if not name:
+            return {
+                "success": False,
+                "result": None,
+                "error": "Name is required",
+                "execution_time": time.time() - start_time
+            }
+        
+        # Generate greeting based on style
+        if greeting_style == "formal":
+            greeting = f"Good day, {name}. I hope you are well."
+        elif greeting_style == "enthusiastic":
+            greeting = f"Hello there, {name}! Great to see you!"
+        else:  # casual
+            greeting = f"Hi {name}! How are you doing?"
+        
+        # Add time if requested
+        if include_time:
+            current_time = datetime.now().strftime("%H:%M:%S")
+            greeting += f" The current time is {current_time}."
+        
+        execution_time = time.time() - start_time
+        
+        return {
+            "success": True,
+            "result": greeting,
+            "error": None,
+            "execution_time": execution_time
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "result": None,
+            "error": f"Tool execution failed: {str(e)}",
+            "execution_time": time.time() - start_time
+        }
+'''
+            
+            tool = Tool(
+                name=tool_info["name"],
+                description=tool_info["description"],
+                schema=tool_info["schema"],
+                implementation=implementation_code.strip(),
+                version=tool_info["version"],
+                category="utility",
+                tags=["hello", "greeting", "demo"],
+                user_id=admin_user.id,
+                is_public="true"
+            )
+            
+            self.session.add(tool)
+            created_tools.append(tool)
+            print(f"  ✓ Created tool: {tool.name}")
+        else:
+            created_tools.append(existing_tool)
+            print(f"  → Tool already exists: {existing_tool.name}")
+        
+        self.session.flush()
+        return created_tools
     
     def seed_graphs(self, users: List[User]) -> List[Graph]:
         """Seed sample graphs"""

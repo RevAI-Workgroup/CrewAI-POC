@@ -37,9 +37,9 @@ This document lists all tasks associated with PBI-001.
 | 1-27 | [Message Handling](mdc:PBI-001-27.md) | Done | Message processing with execution triggers |
 | 1-28 | [WebSocket Evaluation](mdc:PBI-001-28.md) | Done | Evaluate WebSocket vs SSE performance |
 | 1-29 | [Streaming Performance Testing](mdc:PBI-001-29.md) | Done | Performance tests for real-time features |
-| 1-30 | [Tool Repository Service](mdc:PBI-001-30.md) | Proposed | Foundation for tool management |
-| 1-31 | [Hello World Tool](mdc:PBI-001-31.md) | Proposed | Implement basic hello world tool |
-| 1-32 | [Tool Schema Framework](mdc:PBI-001-32.md) | Proposed | Tool definition and execution framework |
+| 1-30 | [Tool Repository Service](mdc:PBI-001-30.md) | Done | Foundation for tool management |
+| 1-31 | [Hello World Tool](mdc:PBI-001-31.md) | Done | Implement basic hello world tool |
+| 1-32 | [Tool Schema Framework](mdc:PBI-001-32.md) | Done | Tool definition and execution framework |
 | 1-33 | [MLFlow Integration](mdc:PBI-001-33.md) | Proposed | Integrate MLFlow for metrics collection |
 | 1-34 | [Tool Testing](mdc:PBI-001-34.md) | Proposed | Testing framework for tool execution |
 | 1-35 | [MLFlow Dashboard Endpoints](mdc:PBI-001-35.md) | Proposed | API endpoints for metrics dashboard |
