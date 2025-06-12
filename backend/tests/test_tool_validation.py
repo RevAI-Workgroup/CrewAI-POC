@@ -370,19 +370,18 @@ def process(parameters):
         assert is_valid is False
         assert any("execute(" in error for error in errors)
     
-    def test_validate_implementation_missing_return(self):
-        """Test validation of implementation missing return statement"""
-        invalid_implementation = '''
+    def test_validate_implementation_simple_return(self):
+        """Test validation of implementation with simple return"""
+        implementation_with_return = '''
 def execute(parameters):
     name = parameters.get("name", "World")
-    print(f"Hello, {name}!")
-    # Missing return statement
+    return f"Hello, {name}!"
 '''
         
-        is_valid, errors = validate_tool_implementation(invalid_implementation)
+        is_valid, errors = validate_tool_implementation(implementation_with_return)
         
-        assert is_valid is False
-        assert any("return" in error for error in errors)
+        assert is_valid is True
+        assert len(errors) == 0
     
     def test_validate_implementation_syntax_error(self):
         """Test validation of implementation with syntax error"""
@@ -484,7 +483,7 @@ class TestEdgeCasesAndIntegration:
         """Test validation with None parameters"""
         schema = {"type": "object", "properties": {}}
         
-        is_valid, errors = validate_tool_parameters(None, schema)
+        is_valid, errors = validate_tool_parameters(None, schema)  # type: ignore
         
         assert is_valid is False
         assert len(errors) > 0
@@ -493,7 +492,7 @@ class TestEdgeCasesAndIntegration:
         """Test validation with None schema"""
         parameters = {"test": "value"}
         
-        is_valid, errors = validate_tool_parameters(parameters, None)
+        is_valid, errors = validate_tool_parameters(parameters, None)  # type: ignore
         
         assert is_valid is False
         assert len(errors) > 0

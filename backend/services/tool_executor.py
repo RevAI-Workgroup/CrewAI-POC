@@ -180,6 +180,7 @@ class ToolExecutor:
                     'abs': abs,
                     'round': round,
                     'print': print,  # Allow print for debugging
+                    'Exception': Exception,  # Allow Exception for error handling
                 },
                 'parameters': parameters,
                 'time': time,
@@ -187,6 +188,7 @@ class ToolExecutor:
                 'json': __import__('json'),
                 'math': __import__('math'),
                 're': __import__('re'),
+                '__import__': __import__,  # Allow import function
             }
             
             exec_locals = {}

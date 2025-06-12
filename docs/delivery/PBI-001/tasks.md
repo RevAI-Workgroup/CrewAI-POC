@@ -41,7 +41,7 @@ This document lists all tasks associated with PBI-001.
 | 1-31 | [Hello World Tool](mdc:PBI-001-31.md) | Done | Implement basic hello world tool |
 | 1-32 | [Tool Schema Framework](mdc:PBI-001-32.md) | Done | Tool definition and execution framework |
 | 1-33 | [MLFlow Integration](mdc:PBI-001-33.md) | Proposed | Integrate MLFlow for metrics collection |
-| 1-34 | [Tool Testing](mdc:PBI-001-34.md) | Proposed | Testing framework for tool execution |
+| 1-34 | [Tool Testing](mdc:PBI-001-34.md) | Done | Testing framework for tool execution |
 | 1-35 | [MLFlow Dashboard Endpoints](mdc:PBI-001-35.md) | Proposed | API endpoints for metrics dashboard |
 | 1-36 | [API Key Security](mdc:PBI-001-36.md) | Proposed | Encryption and secure storage for API keys |
 | 1-37 | [Security Middleware](mdc:PBI-001-37.md) | Proposed | Rate limiting and security middleware |
