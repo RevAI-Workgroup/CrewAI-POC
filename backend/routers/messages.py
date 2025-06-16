@@ -24,6 +24,9 @@ from services.thread_service import ThreadService
 from services.graph_translation import GraphTranslationService
 from services.dynamic_task_service import DynamicTaskService
 from services.execution_record_service import ExecutionRecordService
+from exceptions.chat_exceptions import (
+    ErrorHandler, ChatError, ChatContextError, create_execution_already_running_error
+)
 from utils.dependencies import get_current_user, get_db
 
 logger = logging.getLogger(__name__)
@@ -275,23 +278,13 @@ async def send_chat_message_stream(
         # Validate graph access through thread service
         graph = thread_service._validate_graph_access(str(thread.graph_id), str(current_user.id))
         
-        # Check if crew is already executing for this graph
+        # Check if crew is already executing for this graph with enhanced error handling
         if thread_service.is_crew_executing(str(thread.graph_id)):
-            raise HTTPException(status_code=409, detail="Crew is already executing for this graph")
-        
-        # Validate graph for chat (single crew restriction) - using placeholder validation
-        graph_data = getattr(graph, 'graph_data', None)
-        if not graph_data:
-            raise HTTPException(status_code=400, detail="Graph has no data")
-        
-        nodes = graph_data.get("nodes", [])
-        crew_nodes = [n for n in nodes if n.get("type") == "crew"]
-        
-        if not crew_nodes:
-            raise HTTPException(status_code=400, detail="Graph must have at least one crew node for chat")
-        
-        if len(crew_nodes) > 1:
-            raise HTTPException(status_code=400, detail="Graph can only have one crew node for chat functionality")
+            error = create_execution_already_running_error(str(thread.graph_id))
+            raise HTTPException(
+                status_code=409, 
+                detail=ErrorHandler.get_user_error_response(error)
+            )
         
         # Create streaming response generator
         async def generate_stream():
@@ -343,32 +336,138 @@ async def send_chat_message_stream(
                 execution_service.start_execution(str(execution.id))
                 db.commit()
                 
-                # Translate graph to CrewAI objects
-                translation_service = GraphTranslationService(db)
-                crew = translation_service.translate_graph(graph)
+                # Translate graph to CrewAI objects with enhanced error handling
+                try:
+                    translation_service = GraphTranslationService(db)
+                    crew = translation_service.translate_graph(graph)
+                except Exception as translation_error:
+                    # Handle graph translation errors
+                    chat_error = ErrorHandler.handle_graph_translation_error(
+                        translation_error, 
+                        str(thread.graph_id), 
+                        "chat_stream_translation"
+                    )
+                    
+                    # Update execution and message with translation error
+                    execution_service.fail_execution(
+                        execution_id=str(execution.id),
+                        error_message=chat_error.message,
+                        error_details=chat_error.to_dict(),
+                        traceback_info=None
+                    )
+                    
+                    if assistant_message:
+                        with MessageProcessingService(db) as msg_service:
+                            msg_service.update_message(
+                                message_id=str(assistant_message.id),
+                                user_id=str(current_user.id),
+                                content=chat_error.user_message,
+                                status=MessageStatus.FAILED
+                            )
+                    
+                    db.commit()
+                    error_response = ErrorHandler.get_user_error_response(chat_error)
+                    yield f"data: {json.dumps(error_response)}\n\n"
+                    return
                 
-                # Create dynamic task from chat message (Task 3-11)
-                crew_with_dynamic_task = DynamicTaskService.create_chat_task_for_crew(
-                    crew=crew,
-                    message=request.message,
-                    output_specification=request.output
-                )
+                # Create dynamic task from chat message (Task 3-11) with error handling
+                try:
+                    crew_with_dynamic_task = DynamicTaskService.create_chat_task_for_crew(
+                        crew=crew,
+                        message=request.message,
+                        output_specification=request.output
+                    )
+                except Exception as task_creation_error:
+                    # Handle dynamic task creation errors
+                    chat_error = ErrorHandler.handle_crew_execution_error(
+                        task_creation_error,
+                        str(execution.id),
+                        "dynamic_task_creation"
+                    )
+                    
+                    execution_service.fail_execution(
+                        execution_id=str(execution.id),
+                        error_message=chat_error.message,
+                        error_details=chat_error.to_dict(),
+                        traceback_info=None
+                    )
+                    
+                    if assistant_message:
+                        with MessageProcessingService(db) as msg_service:
+                            msg_service.update_message(
+                                message_id=str(assistant_message.id),
+                                user_id=str(current_user.id),
+                                content=chat_error.user_message,
+                                status=MessageStatus.FAILED
+                            )
+                    
+                    db.commit()
+                    error_response = ErrorHandler.get_user_error_response(chat_error)
+                    yield f"data: {json.dumps(error_response)}\n\n"
+                    return
                 
-                # Execute CrewAI and stream response
+                # Execute CrewAI and stream response with enhanced error handling
                 accumulated_content = ""
-                async for chunk in execute_crew_stream(crew_with_dynamic_task, str(execution.id), db):
-                    accumulated_content += chunk
+                try:
+                    async for chunk in execute_crew_stream(crew_with_dynamic_task, str(execution.id), db):
+                        accumulated_content += chunk
+                        
+                        # Update assistant message content via service with error handling
+                        try:
+                            with MessageProcessingService(db) as msg_service:
+                                msg_service.update_message(
+                                    message_id=str(assistant_message.id),
+                                    user_id=str(current_user.id),
+                                    content=accumulated_content
+                                )
+                        except Exception as update_error:
+                            # Log message update error but continue streaming
+                            logger.warning(f"Failed to update message during streaming: {update_error}")
+                        
+                        # Stream chunk with error resilience
+                        try:
+                            yield f"data: {json.dumps({'content': chunk, 'message_id': str(assistant_message.id)})}\n\n"
+                        except Exception as stream_error:
+                            # Handle streaming encoding errors
+                            logger.error(f"Streaming encoding error: {stream_error}")
+                            streaming_error = ErrorHandler.handle_streaming_error(
+                                stream_error,
+                                request.threadId,
+                                str(assistant_message.id),
+                                "chunk_streaming"
+                            )
+                            error_response = ErrorHandler.get_user_error_response(streaming_error)
+                            yield f"data: {json.dumps(error_response)}\n\n"
+                            return
+                            
+                except Exception as crew_execution_error:
+                    # Handle CrewAI execution errors
+                    chat_error = ErrorHandler.handle_crew_execution_error(
+                        crew_execution_error,
+                        str(execution.id),
+                        "crew_execution"
+                    )
                     
-                    # Update assistant message content via service
-                    with MessageProcessingService(db) as msg_service:
-                        msg_service.update_message(
-                            message_id=str(assistant_message.id),
-                            user_id=str(current_user.id),
-                            content=accumulated_content
-                        )
+                    execution_service.fail_execution(
+                        execution_id=str(execution.id),
+                        error_message=chat_error.message,
+                        error_details=chat_error.to_dict(),
+                        traceback_info=None
+                    )
                     
-                    # Stream chunk
-                    yield f"data: {json.dumps({'content': chunk, 'message_id': str(assistant_message.id)})}\n\n"
+                    if assistant_message:
+                        with MessageProcessingService(db) as msg_service:
+                            msg_service.update_message(
+                                message_id=str(assistant_message.id),
+                                user_id=str(current_user.id),
+                                content=chat_error.user_message,
+                                status=MessageStatus.FAILED
+                            )
+                    
+                    db.commit()
+                    error_response = ErrorHandler.get_user_error_response(chat_error)
+                    yield f"data: {json.dumps(error_response)}\n\n"
+                    return
                 
                 # Mark execution and message as completed using service
                 execution_service.complete_execution(
