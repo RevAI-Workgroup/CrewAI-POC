@@ -18,7 +18,7 @@ This document lists all tasks associated with PBI-003.
 | [3-8](mdc:tasks/PBI-003-8.md) | Thread Management Tests | Done | Backend testing suite for thread operations |
 | [3-9](mdc:tasks/PBI-003-9.md) | Chat Message Schemas | Done | Request/response models for chat functionality |
 | [3-10](mdc:tasks/PBI-003-10.md) | Chat Streaming Endpoint | Review | HTTP streaming with CrewAI integration |
-| [3-11](mdc:tasks/PBI-003-11.md) | Dynamic Task Creation | Proposed | Create CrewAI tasks from chat messages |
+| [3-11](mdc:tasks/PBI-003-11.md) | Dynamic Task Creation | Review | Create CrewAI tasks from chat messages |
 | [3-12](mdc:tasks/PBI-003-12.md) | Execution Record Management | Proposed | Link messages to executions during streaming |
 | [3-13](mdc:tasks/PBI-003-13.md) | Error Handling Implementation | Proposed | Comprehensive error management for chat |
 | [3-14](mdc:tasks/PBI-003-14.md) | Chat Backend Tests | Proposed | Integration testing for chat endpoints |

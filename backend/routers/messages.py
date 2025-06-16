@@ -22,6 +22,7 @@ from schemas.message_schemas import (
 from services.message_processing_service import MessageProcessingService
 from services.thread_service import ThreadService
 from services.graph_translation import GraphTranslationService
+from services.dynamic_task_service import DynamicTaskService
 from utils.dependencies import get_current_user, get_db
 
 logger = logging.getLogger(__name__)
@@ -340,16 +341,16 @@ async def send_chat_message_stream(
                 translation_service = GraphTranslationService(db)
                 crew = translation_service.translate_graph(graph)
                 
-                # Create a new task from the message (dynamic task creation will be in task 3-11)
-                # For now, execute existing crew with kickoff inputs
-                kickoff_inputs = {
-                    'user_message': request.message,
-                    'expected_output': request.output or "A helpful and detailed response"
-                }
+                # Create dynamic task from chat message (Task 3-11)
+                crew_with_dynamic_task = DynamicTaskService.create_chat_task_for_crew(
+                    crew=crew,
+                    message=request.message,
+                    output_specification=request.output
+                )
                 
                 # Execute CrewAI and stream response
                 accumulated_content = ""
-                async for chunk in execute_crew_stream(crew, execution_id, db, kickoff_inputs):
+                async for chunk in execute_crew_stream(crew_with_dynamic_task, execution_id, db):
                     accumulated_content += chunk
                     
                     # Update assistant message content via service
@@ -410,7 +411,7 @@ async def send_chat_message_stream(
         raise HTTPException(status_code=500, detail=f"Failed to process message: {str(e)}")
 
 
-async def execute_crew_stream(crew, execution_id: str, db: Session, inputs: Dict[str, Any]) -> AsyncGenerator[str, None]:
+async def execute_crew_stream(crew, execution_id: str, db: Session, inputs: Optional[Dict[str, Any]] = None) -> AsyncGenerator[str, None]:
     """Execute CrewAI crew and yield streaming response chunks."""
     try:
         # Update execution status
@@ -419,8 +420,11 @@ async def execute_crew_stream(crew, execution_id: str, db: Session, inputs: Dict
             execution.started_at = datetime.utcnow()
             db.commit()
         
-        # Execute crew with inputs
-        result = crew.kickoff(inputs=inputs)
+        # Execute crew with or without inputs
+        if inputs:
+            result = crew.kickoff(inputs=inputs)
+        else:
+            result = crew.kickoff()
         
         # Get content from result
         content = str(result.raw) if hasattr(result, 'raw') else str(result)
