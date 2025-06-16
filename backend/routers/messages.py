@@ -23,6 +23,7 @@ from services.message_processing_service import MessageProcessingService
 from services.thread_service import ThreadService
 from services.graph_translation import GraphTranslationService
 from services.dynamic_task_service import DynamicTaskService
+from services.execution_record_service import ExecutionRecordService
 from utils.dependencies import get_current_user, get_db
 
 logger = logging.getLogger(__name__)
@@ -296,6 +297,7 @@ async def send_chat_message_stream(
         async def generate_stream():
             execution = None
             assistant_message = None
+            execution_service = ExecutionRecordService(db)
             
             try:
                 # Create user message
@@ -318,23 +320,27 @@ async def send_chat_message_stream(
                     )
                     assistant_message.mark_processing()
                 
-                # Create execution record before starting
-                execution_id = str(uuid4())
-                execution = Execution(
-                    id=execution_id,
+                # Create execution record using ExecutionRecordService
+                execution = execution_service.create_chat_execution(
                     graph_id=str(thread.graph_id),
-                    user_id=str(current_user.id),
-                    status='running',
+                    trigger_message_id=str(user_message.id),
                     execution_config={
                         'message': request.message,
                         'output': request.output,
-                        'thread_id': request.threadId
+                        'thread_id': request.threadId,
+                        'user_id': str(current_user.id)
                     }
                 )
-                db.add(execution)
                 
-                # Link execution to message
-                assistant_message.link_execution(execution_id)
+                # Link execution to assistant message
+                execution_service.link_message_to_execution(
+                    message_id=str(assistant_message.id),
+                    execution_id=str(execution.id),
+                    user_id=str(current_user.id)
+                )
+                
+                # Start execution with proper status management
+                execution_service.start_execution(str(execution.id))
                 db.commit()
                 
                 # Translate graph to CrewAI objects
@@ -350,7 +356,7 @@ async def send_chat_message_stream(
                 
                 # Execute CrewAI and stream response
                 accumulated_content = ""
-                async for chunk in execute_crew_stream(crew_with_dynamic_task, execution_id, db):
+                async for chunk in execute_crew_stream(crew_with_dynamic_task, str(execution.id), db):
                     accumulated_content += chunk
                     
                     # Update assistant message content via service
@@ -364,9 +370,12 @@ async def send_chat_message_stream(
                     # Stream chunk
                     yield f"data: {json.dumps({'content': chunk, 'message_id': str(assistant_message.id)})}\n\n"
                 
-                # Mark execution and message as completed
-                execution.status = 'completed'
-                execution.result_data = {'content': accumulated_content}
+                # Mark execution and message as completed using service
+                execution_service.complete_execution(
+                    execution_id=str(execution.id),
+                    result_data={'content': accumulated_content},
+                    final_output=accumulated_content
+                )
                 assistant_message.mark_completed()
                 db.commit()
                 
@@ -375,10 +384,15 @@ async def send_chat_message_stream(
             except Exception as e:
                 logger.error(f"Chat stream error: {e}")
                 
-                # Mark execution as failed
+                # Mark execution as failed using service
                 if execution:
-                    execution.status = 'failed'
-                    execution.error_message = str(e)
+                    execution_service.fail_execution(
+                        execution_id=str(execution.id),
+                        error_message=str(e),
+                        error_details={"error_type": type(e).__name__},
+                        traceback_info=None  # Could add traceback if needed
+                    )
+                    execution_service.cleanup_failed_execution(str(execution.id))
                 
                 # Mark assistant message as failed
                 if assistant_message:
@@ -412,15 +426,24 @@ async def send_chat_message_stream(
 
 
 async def execute_crew_stream(crew, execution_id: str, db: Session, inputs: Optional[Dict[str, Any]] = None) -> AsyncGenerator[str, None]:
-    """Execute CrewAI crew and yield streaming response chunks."""
+    """Execute CrewAI crew and yield streaming response chunks with progress tracking."""
+    execution_service = ExecutionRecordService(db)
+    
     try:
-        # Update execution status
-        execution = db.query(Execution).filter(Execution.id == execution_id).first()
-        if execution:
-            execution.started_at = datetime.utcnow()
-            db.commit()
+        # Update progress: Starting execution
+        execution_service.update_execution_progress(
+            execution_id=execution_id,
+            progress=10,
+            current_step="Starting CrewAI execution"
+        )
         
         # Execute crew with or without inputs
+        execution_service.update_execution_progress(
+            execution_id=execution_id,
+            progress=25,
+            current_step="Executing crew tasks"
+        )
+        
         if inputs:
             result = crew.kickoff(inputs=inputs)
         else:
@@ -429,27 +452,43 @@ async def execute_crew_stream(crew, execution_id: str, db: Session, inputs: Opti
         # Get content from result
         content = str(result.raw) if hasattr(result, 'raw') else str(result)
         
+        # Update progress: Processing results
+        execution_service.update_execution_progress(
+            execution_id=execution_id,
+            progress=75,
+            current_step="Processing execution results"
+        )
+        
         # Split content into chunks for streaming effect
         chunk_size = 50
-        for i in range(0, len(content), chunk_size):
-            chunk = content[i:i + chunk_size]
+        total_chunks = len(content) // chunk_size + (1 if len(content) % chunk_size else 0)
+        
+        for i, chunk_start in enumerate(range(0, len(content), chunk_size)):
+            chunk = content[chunk_start:chunk_start + chunk_size]
+            
+            # Update progress as we stream chunks
+            chunk_progress = 75 + (20 * (i + 1) // total_chunks)  # 75-95%
+            execution_service.update_execution_progress(
+                execution_id=execution_id,
+                progress=min(chunk_progress, 95),
+                current_step=f"Streaming response chunk {i + 1}/{total_chunks}"
+            )
+            
             yield chunk
+            
             # Small delay to simulate streaming
             import asyncio
             await asyncio.sleep(0.1)
         
-        # Update execution completion
-        if execution:
-            execution.completed_at = datetime.utcnow()
-            db.commit()
+        # Final progress update will be handled by completion in the main function
             
     except Exception as e:
-        # Update execution with error
-        if execution:
-            execution.error_message = str(e)
-            execution.status = 'failed'
-            execution.completed_at = datetime.utcnow()
-            db.commit()
+        # Update execution with error using service
+        execution_service.fail_execution(
+            execution_id=execution_id,
+            error_message=f"CrewAI execution failed: {str(e)}",
+            error_details={"error_type": type(e).__name__, "source": "execute_crew_stream"}
+        )
         
         yield f"Error executing CrewAI: {str(e)}"
 
