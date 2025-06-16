@@ -20,13 +20,7 @@ from models.execution import Execution, ExecutionStatus
 from services.async_execution_service import AsyncExecutionService
 from db_config import SessionLocal
 
-# Import SSE service for real-time updates
-try:
-    from services.sse_service import sse_service
-    SSE_AVAILABLE = True
-except ImportError:
-    SSE_AVAILABLE = False
-    sse_service = None
+# SSE service disabled for chat implementation
 
 logger = logging.getLogger(__name__)
 
@@ -90,8 +84,7 @@ class MessageProcessingService:
         
         logger.info(f"Created message {getattr(message, 'id')} in thread {thread_id}")
         
-        # Broadcast message creation via SSE
-        self._broadcast_message_event("message_created", message, user_id)
+        # SSE broadcasting disabled for chat implementation
         
         # Trigger execution if requested
         if triggers_execution:
@@ -175,8 +168,7 @@ class MessageProcessingService:
         
         logger.info(f"Updated message {message_id}")
         
-        # Broadcast message update via SSE
-        self._broadcast_message_event("message_updated", message, user_id)
+        # SSE broadcasting disabled for chat implementation
         
         return message
     
@@ -222,8 +214,7 @@ class MessageProcessingService:
         
         logger.info(f"Processing message {message_id} for execution")
         
-        # Broadcast processing start
-        self._broadcast_message_event("message_processing", message, user_id)
+        # SSE broadcasting disabled for chat implementation
         
         try:
             # Prepare execution inputs from message content and metadata
@@ -272,11 +263,7 @@ class MessageProcessingService:
             
             logger.info(f"Triggered execution {execution_id_str} for message {message_id} (task: {task_id})")
             
-            # Broadcast execution trigger
-            self._broadcast_message_event("execution_triggered", message, user_id, {
-                "execution_id": execution_id_str,
-                "task_id": task_id
-            })
+            # SSE broadcasting disabled for chat implementation
             
             return execution_id_str
             
@@ -292,10 +279,7 @@ class MessageProcessingService:
             })
             self.db.commit()
             
-            # Broadcast failure
-            self._broadcast_message_event("execution_trigger_failed", message, user_id, {
-                "error": str(e)
-            })
+            # SSE broadcasting disabled for chat implementation
             
             raise
     
@@ -338,56 +322,10 @@ class MessageProcessingService:
         
         self.db.commit()
         
-        # Get user ID for broadcasting
-        user_id = message.get_user_id()
-        if user_id:
-            event_type = "execution_completed" if not error_message else "execution_failed"
-            self._broadcast_message_event(event_type, message, user_id, {
-                "execution_id": execution_id,
-                "result": result_data,
-                "error": error_message
-            })
+        # SSE broadcasting disabled for chat implementation
         
         message_id = getattr(message, 'id', 'unknown')
         logger.info(f"Updated message {message_id} for execution {execution_id} completion")
-    
-    def _broadcast_message_event(
-        self,
-        event_type: str,
-        message: Message,
-        user_id: str,
-        additional_data: Optional[Dict[str, Any]] = None
-    ) -> None:
-        """Broadcast message event via SSE if available."""
-        
-        if not SSE_AVAILABLE or not sse_service:
-            return
-        
-        try:
-            import asyncio
-            
-            event_data = {
-                "message_id": getattr(message, 'id', ''),
-                "thread_id": getattr(message, 'thread_id', ''),
-                "status": getattr(message, 'status', ''),
-                "sequence_number": getattr(message, 'sequence_number', 0),
-                "triggers_execution": getattr(message, 'triggers_execution', False),
-                "execution_id": getattr(message, 'execution_id', None),
-                "timestamp": datetime.utcnow().isoformat()
-            }
-            
-            if additional_data:
-                event_data.update(additional_data)
-            
-            # Create async task to broadcast event
-            asyncio.create_task(sse_service.broadcast_execution_event(
-                event_type,
-                user_id,
-                event_data
-            ))
-            
-        except Exception as e:
-            logger.warning(f"Failed to broadcast message event {event_type}: {e}")
     
     def close(self):
         """Close database session if we created it."""

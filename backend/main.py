@@ -20,7 +20,6 @@ from startup import startup_database_check
 # Import routers
 from routers.auth import router as auth_router
 from routers.graphs import router as graphs_router
-from routers.sse import router as sse_router
 from routers.websocket import router as websocket_router
 from routers.messages import router as messages_router
 from routers.tools import router as tools_router
@@ -72,7 +71,6 @@ app.add_middleware(
 # Include routers
 app.include_router(auth_router, prefix="/api")
 app.include_router(graphs_router, prefix="/api")
-app.include_router(sse_router, prefix="/api")
 app.include_router(websocket_router, prefix="/api")
 app.include_router(messages_router, prefix="/api")
 app.include_router(tools_router, prefix="/api")
