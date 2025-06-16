@@ -14,7 +14,7 @@ This document lists all tasks associated with PBI-003.
 | [3-4](mdc:tasks/PBI-003-4.md) | ThreadService Implementation | Done | Complete CRUD operations and validation service |
 | [3-5](mdc:tasks/PBI-003-5.md) | Thread Router Implementation | Done | All thread management endpoints with error handling |
 | [3-6](mdc:tasks/PBI-003-6.md) | Single Crew Validation | Proposed | Implement single crew per graph restriction |
-| [3-7](mdc:tasks/PBI-003-7.md) | Execution Protection | Proposed | Prevent concurrent crew executions |
+| [3-7](mdc:tasks/PBI-003-7.md) | Execution Protection | Done | Prevent concurrent crew executions |
 | [3-8](mdc:tasks/PBI-003-8.md) | Thread Management Tests | Proposed | Backend testing suite for thread operations |
 | [3-9](mdc:tasks/PBI-003-9.md) | Chat Message Schemas | Proposed | Request/response models for chat functionality |
 | [3-10](mdc:tasks/PBI-003-10.md) | Chat Streaming Endpoint | Proposed | HTTP streaming with CrewAI integration |

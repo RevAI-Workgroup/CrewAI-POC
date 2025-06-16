@@ -25,6 +25,13 @@ except ImportError:
     SSE_AVAILABLE = False
     sse_service = None
 
+# Import execution protection service
+try:
+    from services.execution_protection_service import get_execution_protection_service
+    PROTECTION_AVAILABLE = True
+except ImportError:
+    PROTECTION_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -86,6 +93,10 @@ class ExecutionStatusService:
                     f"Invalid status transition from {current_status.value} to {new_status.value}"
                 )
             
+            # Handle execution protection integration
+            if PROTECTION_AVAILABLE:
+                self._handle_protection_integration(execution, current_status, new_status)
+            
             # Update status
             execution.set_status(new_status)
             
@@ -116,6 +127,33 @@ class ExecutionStatusService:
             self.db.rollback()
             logger.error(f"Failed to update execution status: {e}")
             raise
+    
+    def _handle_protection_integration(self, execution: Execution, old_status: ExecutionStatus, new_status: ExecutionStatus):
+        """Handle execution protection service integration during status changes."""
+        try:
+            protection_service = get_execution_protection_service(self.db)
+            
+            # When execution finishes, release the lock
+            if old_status in [ExecutionStatus.RUNNING, ExecutionStatus.PENDING] and \
+               new_status in [ExecutionStatus.COMPLETED, ExecutionStatus.FAILED, ExecutionStatus.CANCELLED, ExecutionStatus.TIMEOUT]:
+                
+                success = protection_service.release_execution_lock(str(execution.graph_id), str(execution.id))
+                if success:
+                    logger.info(f"Released execution lock for graph {execution.graph_id} after execution {execution.id} finished")
+                else:
+                    logger.warning(f"Failed to release execution lock for graph {execution.graph_id} after execution {execution.id} finished")
+            
+            # When execution starts, ensure lock is acquired
+            elif old_status == ExecutionStatus.PENDING and new_status == ExecutionStatus.RUNNING:
+                success = protection_service.acquire_execution_lock(str(execution.graph_id), str(execution.id))
+                if not success:
+                    # This is a critical failure - should not happen if protection is working correctly
+                    logger.error(f"Failed to acquire execution lock when starting execution {execution.id} for graph {execution.graph_id}")
+                    raise RuntimeError("Failed to acquire execution lock during status transition")
+                
+        except Exception as e:
+            logger.error(f"Error in protection service integration: {e}")
+            # Don't fail the entire status update for protection issues, but log the error
     
     def _execute_callbacks(self, status: ExecutionStatus, execution: Execution):
         """Execute registered callbacks for status change."""

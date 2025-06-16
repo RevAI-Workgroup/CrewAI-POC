@@ -18,6 +18,7 @@ from models.message import Message, MessageStatus
 from models.execution import Execution, ExecutionStatus
 from models.node_types import NodeTypeEnum
 from services.graph_crew_validation_service import GraphCrewValidationService
+from services.execution_protection_service import get_execution_protection_service, ConcurrentExecutionError
 
 logger = logging.getLogger(__name__)
 
@@ -246,17 +247,24 @@ class ThreadService:
     
     def is_crew_executing(self, graph_id: str) -> bool:
         """Check if any crew is currently executing for the given graph."""
-        active_executions = self.db.query(Execution).filter(
-            and_(
-                Execution.graph_id == graph_id,
-                or_(
-                    Execution.status == ExecutionStatus.RUNNING.value,  # type: ignore
-                    Execution.status == ExecutionStatus.PENDING.value  # type: ignore
-                )
-            )
-        ).count()
+        protection_service = get_execution_protection_service(self.db)
+        can_start, _ = protection_service.can_start_execution(graph_id)
+        return not can_start
+    
+    def validate_execution_start(self, graph_id: str, execution_id: str) -> None:
+        """
+        Validate that an execution can start for the graph.
         
-        return active_executions > 0
+        Raises:
+            ConcurrentExecutionError: If another execution is already running
+        """
+        protection_service = get_execution_protection_service(self.db)
+        protection_service.validate_execution_start(graph_id, execution_id)
+    
+    def get_blocking_execution_info(self, graph_id: str) -> Optional[Dict[str, Any]]:
+        """Get information about any execution blocking a new execution."""
+        protection_service = get_execution_protection_service(self.db)
+        return protection_service.get_execution_info(graph_id)
     
     def get_thread_statistics(self, thread_id: str, user_id: str) -> Dict[str, Any]:
         """Get statistics for a thread."""
