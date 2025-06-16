@@ -11,7 +11,7 @@ This document lists all tasks associated with PBI-003.
 | [3-1](mdc:tasks/PBI-003-1.md) | Remove SSE Infrastructure | Done | Clean up existing SSE implementation to avoid conflicts |
 | [3-2](mdc:tasks/PBI-003-2.md) | Validate Models Compatibility | Done | Ensure Thread/Message/Graph models support chat features |
 | [3-3](mdc:tasks/PBI-003-3.md) | Thread Schemas Implementation | Done | Create complete thread request/response schemas |
-| [3-4](mdc:tasks/PBI-003-4.md) | ThreadService Implementation | Proposed | Complete CRUD operations and validation service |
+| [3-4](mdc:tasks/PBI-003-4.md) | ThreadService Implementation | Done | Complete CRUD operations and validation service |
 | [3-5](mdc:tasks/PBI-003-5.md) | Thread Router Implementation | Proposed | All thread management endpoints with error handling |
 | [3-6](mdc:tasks/PBI-003-6.md) | Single Crew Validation | Proposed | Implement single crew per graph restriction |
 | [3-7](mdc:tasks/PBI-003-7.md) | Execution Protection | Proposed | Prevent concurrent crew executions |
