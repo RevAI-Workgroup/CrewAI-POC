@@ -17,6 +17,7 @@ from models.graph import Graph
 from models.message import Message, MessageStatus
 from models.execution import Execution, ExecutionStatus
 from models.node_types import NodeTypeEnum
+from services.graph_crew_validation_service import GraphCrewValidationService
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +41,9 @@ class ThreadService:
             # Validate graph access
             graph = self._validate_graph_access(graph_id, user_id)
             
-            # Validate graph has only one crew (single crew restriction)
-            self._validate_single_crew_graph(graph)
+            # Validate graph for chat (single crew restriction + no existing threads)
+            validation_service = GraphCrewValidationService(self.db)
+            validation_service.validate_graph_for_new_thread(graph)
             
             # Create thread
             thread = Thread(
@@ -310,26 +312,7 @@ class ThreadService:
         
         return graph
     
-    def _validate_single_crew_graph(self, graph: Graph) -> None:
-        """Validate that the graph has exactly one crew node (single crew restriction)."""
-        try:
-            graph_data = graph.get_graph_data()
-            nodes = graph_data.get('nodes', [])
-            
-            # Count crew nodes
-            crew_nodes = [node for node in nodes if node.get('type') == NodeTypeEnum.CREW.value]
-            
-            if len(crew_nodes) == 0:
-                raise ValueError("Graph must have at least one crew node for chat interface")
-            
-            if len(crew_nodes) > 1:
-                raise ValueError("Graph can only have one crew node for chat interface")
-            
-            logger.debug(f"Graph {graph.id} validated with single crew node")
-            
-        except Exception as e:
-            logger.error(f"Failed to validate single crew restriction for graph {graph.id}: {e}")
-            raise ValueError(f"Graph validation failed: {e}")
+
     
     def _validate_status_transition(self, thread: Thread, new_status: ThreadStatus) -> None:
         """Validate status transitions are allowed."""
