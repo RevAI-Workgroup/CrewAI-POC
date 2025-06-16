@@ -155,7 +155,7 @@ class TestChatErrorResponse:
             "error_message": "CrewAI execution failed"
         }
         
-        error = ChatErrorResponse(**data)
+        error = ChatErrorResponse(**data)  # type: ignore[arg-type]
         
         assert error.error_type == "crew_execution"
         assert error.error_message == "CrewAI execution failed"

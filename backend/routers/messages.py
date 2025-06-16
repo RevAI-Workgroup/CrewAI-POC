@@ -2,20 +2,26 @@
 Message API router for CRUD operations and execution triggering
 """
 
+import json
 import logging
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, AsyncGenerator
+from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from models.user import User
 from models.message import MessageType, MessageStatus
+from models.execution import Execution
 from schemas.message_schemas import (
     MessageCreateRequest, MessageUpdateRequest, MessageResponse, 
     MessageListResponse, MessageProcessingRequest, MessageProcessingResponse,
-    MessageStatusSchema
+    MessageStatusSchema, ChatMessageRequest
 )
 from services.message_processing_service import MessageProcessingService
+from services.thread_service import ThreadService
+from services.graph_translation import GraphTranslationService
 from utils.dependencies import get_current_user, get_db
 
 logger = logging.getLogger(__name__)
@@ -247,6 +253,201 @@ async def process_message(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to process message"
         )
+
+
+@router.post("/chat/stream")
+async def send_chat_message_stream(
+    request: ChatMessageRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> StreamingResponse:
+    """Send chat message and return streaming CrewAI execution response."""
+    
+    try:
+        # Validate thread access
+        thread_service = ThreadService(db)
+        thread = thread_service.get_thread(request.threadId, str(current_user.id))
+        if not thread:
+            raise HTTPException(status_code=404, detail="Thread not found")
+        
+        # Validate graph access through thread service
+        graph = thread_service._validate_graph_access(str(thread.graph_id), str(current_user.id))
+        
+        # Check if crew is already executing for this graph
+        if thread_service.is_crew_executing(str(thread.graph_id)):
+            raise HTTPException(status_code=409, detail="Crew is already executing for this graph")
+        
+        # Validate graph for chat (single crew restriction) - using placeholder validation
+        graph_data = getattr(graph, 'graph_data', None)
+        if not graph_data:
+            raise HTTPException(status_code=400, detail="Graph has no data")
+        
+        nodes = graph_data.get("nodes", [])
+        crew_nodes = [n for n in nodes if n.get("type") == "crew"]
+        
+        if not crew_nodes:
+            raise HTTPException(status_code=400, detail="Graph must have at least one crew node for chat")
+        
+        if len(crew_nodes) > 1:
+            raise HTTPException(status_code=400, detail="Graph can only have one crew node for chat functionality")
+        
+        # Create streaming response generator
+        async def generate_stream():
+            execution = None
+            assistant_message = None
+            
+            try:
+                # Create user message
+                with MessageProcessingService(db) as message_service:
+                    user_message = message_service.create_message(
+                        thread_id=request.threadId,
+                        content=request.message,
+                        user_id=str(current_user.id),
+                        message_type=MessageType.USER,
+                        triggers_execution=True
+                    )
+                
+                    # Create assistant message placeholder
+                    assistant_message = message_service.create_message(
+                        thread_id=request.threadId,
+                        content="",
+                        user_id=str(current_user.id),
+                        message_type=MessageType.ASSISTANT,
+                        triggers_execution=False
+                    )
+                    assistant_message.mark_processing()
+                
+                # Create execution record before starting
+                execution_id = str(uuid4())
+                execution = Execution(
+                    id=execution_id,
+                    graph_id=str(thread.graph_id),
+                    user_id=str(current_user.id),
+                    status='running',
+                    execution_config={
+                        'message': request.message,
+                        'output': request.output,
+                        'thread_id': request.threadId
+                    }
+                )
+                db.add(execution)
+                
+                # Link execution to message
+                assistant_message.link_execution(execution_id)
+                db.commit()
+                
+                # Translate graph to CrewAI objects
+                translation_service = GraphTranslationService(db)
+                crew = translation_service.translate_graph(graph)
+                
+                # Create a new task from the message (dynamic task creation will be in task 3-11)
+                # For now, execute existing crew with kickoff inputs
+                kickoff_inputs = {
+                    'user_message': request.message,
+                    'expected_output': request.output or "A helpful and detailed response"
+                }
+                
+                # Execute CrewAI and stream response
+                accumulated_content = ""
+                async for chunk in execute_crew_stream(crew, execution_id, db, kickoff_inputs):
+                    accumulated_content += chunk
+                    
+                    # Update assistant message content via service
+                    with MessageProcessingService(db) as msg_service:
+                        msg_service.update_message(
+                            message_id=str(assistant_message.id),
+                            user_id=str(current_user.id),
+                            content=accumulated_content
+                        )
+                    
+                    # Stream chunk
+                    yield f"data: {json.dumps({'content': chunk, 'message_id': str(assistant_message.id)})}\n\n"
+                
+                # Mark execution and message as completed
+                execution.status = 'completed'
+                execution.result_data = {'content': accumulated_content}
+                assistant_message.mark_completed()
+                db.commit()
+                
+                yield f"data: {json.dumps({'done': True, 'message_id': assistant_message.id})}\n\n"
+                
+            except Exception as e:
+                logger.error(f"Chat stream error: {e}")
+                
+                # Mark execution as failed
+                if execution:
+                    execution.status = 'failed'
+                    execution.error_message = str(e)
+                
+                # Mark assistant message as failed
+                if assistant_message:
+                    with MessageProcessingService(db) as msg_service:
+                        msg_service.update_message(
+                            message_id=str(assistant_message.id),
+                            user_id=str(current_user.id),
+                            content=f"Error: {str(e)}",
+                            status=MessageStatus.FAILED
+                        )
+                
+                db.commit()
+                yield f"data: {json.dumps({'error': str(e), 'done': True})}\n\n"
+        
+        return StreamingResponse(
+            generate_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Credentials": "true",
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Chat message processing error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to process message: {str(e)}")
+
+
+async def execute_crew_stream(crew, execution_id: str, db: Session, inputs: Dict[str, Any]) -> AsyncGenerator[str, None]:
+    """Execute CrewAI crew and yield streaming response chunks."""
+    try:
+        # Update execution status
+        execution = db.query(Execution).filter(Execution.id == execution_id).first()
+        if execution:
+            execution.started_at = datetime.utcnow()
+            db.commit()
+        
+        # Execute crew with inputs
+        result = crew.kickoff(inputs=inputs)
+        
+        # Get content from result
+        content = str(result.raw) if hasattr(result, 'raw') else str(result)
+        
+        # Split content into chunks for streaming effect
+        chunk_size = 50
+        for i in range(0, len(content), chunk_size):
+            chunk = content[i:i + chunk_size]
+            yield chunk
+            # Small delay to simulate streaming
+            import asyncio
+            await asyncio.sleep(0.1)
+        
+        # Update execution completion
+        if execution:
+            execution.completed_at = datetime.utcnow()
+            db.commit()
+            
+    except Exception as e:
+        # Update execution with error
+        if execution:
+            execution.error_message = str(e)
+            execution.status = 'failed'
+            execution.completed_at = datetime.utcnow()
+            db.commit()
+        
+        yield f"Error executing CrewAI: {str(e)}"
 
 
 @router.delete("/{message_id}", status_code=status.HTTP_204_NO_CONTENT)
