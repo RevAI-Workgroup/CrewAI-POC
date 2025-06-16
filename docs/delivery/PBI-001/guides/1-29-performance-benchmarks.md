@@ -6,7 +6,9 @@
 
 ## Overview
 
-This document provides comprehensive performance benchmarks for the CrewAI Backend streaming features, including both SSE and WebSocket implementations. The testing framework enables continuous performance monitoring and regression detection.
+This document provides comprehensive performance benchmarks for the CrewAI Backend streaming features, focusing on WebSocket implementations. The testing framework enables continuous performance monitoring and regression detection. 
+
+**Note**: SSE infrastructure disabled for chat implementation - WebSocket-only benchmarks.
 
 ## Testing Framework
 
@@ -17,7 +19,7 @@ backend/tests/performance/
 ├── utils/
 │   ├── __init__.py
 │   └── metrics.py           # Metrics collection utilities
-├── test_sse_load.py         # SSE load testing
+├── (SSE tests removed)      # SSE infrastructure disabled
 └── test_websocket_load.py   # WebSocket load testing
 ```
 
@@ -154,23 +156,19 @@ python main.py
 
 #### Basic Load Tests
 ```bash
-# SSE load test
-pytest tests/performance/test_sse_load.py::test_sse_multiple_clients -v
-
 # WebSocket load test  
 pytest tests/performance/test_websocket_load.py::test_websocket_multiple_clients -v
 
-# Comparison test
-pytest tests/performance/test_websocket_load.py::test_sse_vs_websocket_comparison -v
+# Note: SSE tests removed - SSE infrastructure disabled for chat implementation
 ```
 
 #### Custom Load Tests
 ```python
 import asyncio
-from tests.performance.test_sse_load import run_sse_load_test
+from tests.performance.test_websocket_load import run_websocket_load_test
 
-# Custom SSE test
-result = await run_sse_load_test(
+# Custom WebSocket test (SSE tests removed)
+result = await run_websocket_load_test(
     base_url="http://localhost:8000",
     token="your_jwt_token",
     num_clients=25,
@@ -255,10 +253,10 @@ rules:
 ## Capacity Planning
 
 ### Current Limits
-- **SSE**: ~200 concurrent connections per server instance
 - **WebSocket**: ~300 concurrent connections per server instance  
 - **Message Rate**: ~1000 messages/second per instance
 - **Memory**: ~500MB for 100 concurrent connections
+- **Note**: SSE limits removed - SSE infrastructure disabled for chat implementation
 
 ### Scaling Strategies
 1. **Horizontal Scaling**: Multiple backend instances

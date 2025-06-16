@@ -262,34 +262,7 @@ async def send_periodic_pings(client: WebSocketClient, duration: float):
         await asyncio.sleep(10.0)  # Ping every 10 seconds
 
 
-async def compare_sse_vs_websocket(
-    base_url: str,
-    token: str,
-    num_clients: int = 10,
-    test_duration: float = 30.0,
-    message_frequency: float = 1.0
-) -> Dict[str, Any]:
-    """
-    Compare SSE vs WebSocket performance side by side.
-    """
-    print("Running SSE performance test...")
-    from tests.performance.test_sse_load import run_sse_load_test
-    sse_results = await run_sse_load_test(base_url, token, num_clients, test_duration, message_frequency)
-    
-    print("Running WebSocket performance test...")
-    ws_results = await run_websocket_load_test(base_url, token, num_clients, test_duration, message_frequency)
-    
-    return {
-        "sse": sse_results,
-        "websocket": ws_results,
-        "comparison": {
-            "test_parameters": {
-                "num_clients": num_clients,
-                "test_duration": test_duration,
-                "message_frequency": message_frequency
-            }
-        }
-    }
+# SSE comparison function removed - SSE infrastructure disabled for chat implementation
 
 
 @pytest.mark.asyncio
@@ -346,20 +319,4 @@ async def test_websocket_high_load():
     assert result["connections"]["total"] >= 0
 
 
-@pytest.mark.asyncio
-async def test_sse_vs_websocket_comparison():
-    """Compare SSE vs WebSocket performance."""
-    base_url = "http://localhost:8000"
-    token = "test_token"  # Would need actual token in real test
-    
-    result = await compare_sse_vs_websocket(
-        base_url=base_url,
-        token=token,
-        num_clients=20,
-        test_duration=15.0,
-        message_frequency=2.0
-    )
-    
-    assert "sse" in result
-    assert "websocket" in result
-    assert "comparison" in result 
+# SSE comparison test removed - SSE infrastructure disabled for chat implementation 

@@ -8,7 +8,7 @@ This document lists all tasks associated with PBI-003.
 
 | Task ID | Name | Status | Description |
 |---------|------|--------|-------------|
-| [3-1](mdc:tasks/PBI-003-1.md) | Remove SSE Infrastructure | Review | Clean up existing SSE implementation to avoid conflicts |
+| [3-1](mdc:tasks/PBI-003-1.md) | Remove SSE Infrastructure | Done | Clean up existing SSE implementation to avoid conflicts |
 | [3-2](mdc:tasks/PBI-003-2.md) | Validate Models Compatibility | Proposed | Ensure Thread/Message/Graph models support chat features |
 | [3-3](mdc:tasks/PBI-003-3.md) | Thread Schemas Implementation | Proposed | Create complete thread request/response schemas |
 | [3-4](mdc:tasks/PBI-003-4.md) | ThreadService Implementation | Proposed | Complete CRUD operations and validation service |
