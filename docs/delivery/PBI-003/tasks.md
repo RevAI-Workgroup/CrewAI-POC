@@ -27,7 +27,7 @@ This document lists all tasks associated with PBI-003.
 | [3-17](mdc:tasks/PBI-003-17.md) | Chat Service Implementation | Done | HTTP streaming service for frontend |
 | [3-18](mdc:tasks/PBI-003-18.md) | Chat Routes Configuration | Done | Router setup for chat interfaces |
 | [3-19](mdc:tasks/PBI-003-19.md) | Frontend Crew Restriction | Proposed | Single crew validation on frontend |
-| [3-20](mdc:tasks/PBI-003-20.md) | Frontend Error Handling | Proposed | Error management and user feedback |
+| [3-20](mdc:tasks/PBI-003-20.md) | Frontend Error Handling | Done | Error management and user feedback |
 | [3-21](mdc:tasks/PBI-003-21.md) | Chat Layout Components | Proposed | Base layout and structure components |
 | [3-22](mdc:tasks/PBI-003-22.md) | Thread Sidebar Implementation | Proposed | Navigation and thread creation interface |
 | [3-23](mdc:tasks/PBI-003-23.md) | Message Components | Proposed | Message list and input components |

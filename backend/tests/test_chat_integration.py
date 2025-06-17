@@ -594,7 +594,8 @@ class TestChatServiceIntegration:
         )
         
         assert thread is not None
-        assert thread.graph_id == str(sample_graph.id)
+        assert str(thread.graph_id) == str(sample_graph.id)
+        # Compare enum values directly (database stores enum values, not string representations)
         assert thread.status == ThreadStatus.ACTIVE
         
         # Test thread access validation
@@ -602,7 +603,8 @@ class TestChatServiceIntegration:
             str(thread.id), 
             str(sample_user.id)
         )
-        assert retrieved_thread.id == thread.id
+        assert retrieved_thread is not None
+        assert str(retrieved_thread.id) == str(thread.id)
     
     def test_message_processing_service_integration(
         self,
@@ -642,8 +644,9 @@ class TestChatServiceIntegration:
         db_session.refresh(user_message)
         db_session.refresh(assistant_message)
         
-        assert user_message.content == "Integration test message"
-        assert assistant_message.content == "Integration test response"
+        assert str(user_message.content) == "Integration test message"
+        assert str(assistant_message.content) == "Integration test response"
+        # Compare enum values directly (database stores enum values, not string representations)
         assert assistant_message.status == MessageStatus.COMPLETED
     
     @patch('services.graph_translation.GraphTranslationService.translate_graph')

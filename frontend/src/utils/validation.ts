@@ -73,3 +73,83 @@ export const getGraphChatIneligibilityReason = (graphData: any): string | null =
   
   return null; // Graph is eligible
 };
+
+// Chat message validation
+export const isValidChatMessage = (message: string): boolean => {
+  return (
+    message.trim().length > 0 &&
+    message.trim().length <= VALIDATION_RULES.CHAT_MESSAGE?.MAX_LENGTH || 2000
+  );
+};
+
+export const getChatMessageValidationError = (message: string): string | null => {
+  if (!message || message.trim().length === 0) {
+    return "Message cannot be empty";
+  }
+  
+  const maxLength = VALIDATION_RULES.CHAT_MESSAGE?.MAX_LENGTH || 2000;
+  if (message.trim().length > maxLength) {
+    return `Message is too long (${message.length}/${maxLength} characters)`;
+  }
+  
+  return null;
+};
+
+// Thread name validation
+export const isValidThreadName = (name: string): boolean => {
+  return (
+    name.trim().length >= 1 &&
+    name.trim().length <= 200
+  );
+};
+
+export const getThreadNameValidationError = (name: string): string | null => {
+  if (!name || name.trim().length === 0) {
+    return "Thread name cannot be empty";
+  }
+  
+  if (name.trim().length > 200) {
+    return `Thread name is too long (${name.length}/200 characters)`;
+  }
+  
+  return null;
+};
+
+// Network connectivity validation
+export const isOnline = (): boolean => {
+  return typeof navigator !== 'undefined' ? navigator.onLine : true;
+};
+
+// Validation result type
+export interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+}
+
+// Comprehensive form validation
+export const validateChatForm = (data: {
+  message?: string;
+  threadName?: string;
+  graphId?: string;
+}): ValidationResult => {
+  const errors: string[] = [];
+  
+  if (data.message !== undefined) {
+    const messageError = getChatMessageValidationError(data.message);
+    if (messageError) errors.push(messageError);
+  }
+  
+  if (data.threadName !== undefined) {
+    const nameError = getThreadNameValidationError(data.threadName);
+    if (nameError) errors.push(nameError);
+  }
+  
+  if (data.graphId !== undefined && !data.graphId.trim()) {
+    errors.push("Graph ID is required");
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
+};
