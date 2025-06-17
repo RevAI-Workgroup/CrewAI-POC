@@ -275,7 +275,6 @@ class TestChatDatabaseTransactions:
         execution = Execution(
             id=str(uuid4()),
             graph_id=str(sample_graph.id),
-            user_id=str(sample_user.id),
             status='completed'
         )
         db_session.add(execution)

@@ -48,7 +48,7 @@ class GraphTranslationService:
         self.db = db
         self.validation_issues: List[ValidationIssue] = []
     
-    def translate_graph(self, graph: Graph) -> Crew:
+    def translate_graph(self, graph: Graph, validate_for_chat: bool = False) -> Crew:
         """
         Translate a Graph model instance to a CrewAI Crew object with enhanced error handling.
         
@@ -67,23 +67,33 @@ class GraphTranslationService:
             # Reset validation issues for this translation
             self.validation_issues = []
             
-            # Extract and validate graph data
+                        # Extract and validate graph data
             graph_data = graph.graph_data
             if graph_data is None:
-                raise create_graph_structure_error(
-                    graph_id, 
-                    {"error": "Graph has no data", "field": "graph_data"}
-                )
+                if validate_for_chat:
+                    raise create_graph_structure_error(
+                        graph_id,
+                        {"error": "Graph has no data", "field": "graph_data"}
+                    )
+                else:
+                    raise GraphTranslationError("Graph has no graph_data")
             
             # Ensure graph_data is a dict
             if not isinstance(graph_data, dict):
-                raise create_graph_structure_error(
-                    graph_id,
-                    {"error": "Graph data must be a dictionary", "actual_type": type(graph_data).__name__}
-                )
+                if validate_for_chat:
+                    raise create_graph_structure_error(
+                        graph_id,
+                        {"error": "Graph data must be a dictionary", "actual_type": type(graph_data).__name__}
+                    )
+                else:
+                    raise GraphTranslationError("Graph data must be a dictionary")
             
-            # Validate basic structure with enhanced error details
-            self._validate_graph_structure_for_chat(graph_data, graph_id)
+            # Validate basic structure
+            self._validate_graph_structure(graph_data)
+            
+            # Additional validation for chat scenarios
+            if validate_for_chat:
+                self._validate_graph_structure_for_chat(graph_data, graph_id)
             
             # Extract nodes and edges
             nodes = graph_data.get("nodes", [])
@@ -94,8 +104,8 @@ class GraphTranslationService:
             node_lookup = {node["id"]: node for node in nodes}
             
             # Translate nodes to CrewAI objects with enhanced error handling
-            agents = self._translate_agents_with_validation(nodes, node_lookup, graph_id)
-            tasks = self._translate_tasks_with_validation(nodes, edges, node_lookup, agents, graph_id)
+            agents = self._translate_agents_with_validation(nodes, node_lookup, graph_id, validate_for_chat)
+            tasks = self._translate_tasks_with_validation(nodes, edges, node_lookup, agents, graph_id, validate_for_chat)
             
             # Determine process type
             process_type = self._determine_process_type(nodes, metadata)
@@ -126,10 +136,20 @@ class GraphTranslationService:
         except ChatGraphTranslationError:
             # Re-raise chat-specific errors as-is
             raise
-        except Exception as e:
-            # Convert generic errors to chat-specific errors
-            logger.error(f"Unexpected error translating graph {graph_id}: {str(e)}")
+        except GraphTranslationError as e:
+            # Re-raise standard GraphTranslationError for non-chat scenarios
+            if not validate_for_chat:
+                raise
+            # Convert to chat error only when validating for chat
+            logger.error(f"Graph translation error in chat context for {graph_id}: {str(e)}")
             raise ErrorHandler.handle_graph_translation_error(e, graph_id, "translate_graph")
+        except Exception as e:
+            # Convert other unexpected errors
+            logger.error(f"Unexpected error translating graph {graph_id}: {str(e)}")
+            if validate_for_chat:
+                raise ErrorHandler.handle_graph_translation_error(e, graph_id, "translate_graph")
+            else:
+                raise
     
     def _validate_graph_structure(self, graph_data: Dict[str, Any]) -> None:
         """Validate basic graph structure before translation."""
@@ -276,7 +296,7 @@ class GraphTranslationService:
         
         return agents
 
-    def _translate_agents_with_validation(self, nodes: List[Dict], node_lookup: Dict[str, Dict], graph_id: str) -> Dict[str, Agent]:
+    def _translate_agents_with_validation(self, nodes: List[Dict], node_lookup: Dict[str, Dict], graph_id: str, validate_for_chat: bool = False) -> Dict[str, Agent]:
         """Enhanced agent translation with detailed error handling."""
         agents = {}
         
@@ -309,7 +329,10 @@ class GraphTranslationService:
                     missing_fields.append("backstory")
                 
                 if missing_fields:
-                    raise create_agent_config_error(graph_id, agent_id, missing_fields)
+                    if validate_for_chat:
+                        raise create_agent_config_error(graph_id, agent_id, missing_fields)
+                    else:
+                        raise GraphTranslationError(f"Agent {agent_id} missing required fields: {missing_fields}")
                 
                 # Create CrewAI Agent with error handling
                 try:
@@ -422,8 +445,8 @@ class GraphTranslationService:
         
         return tasks
 
-    def _translate_tasks_with_validation(self, nodes: List[Dict], edges: List[Dict], 
-                                       node_lookup: Dict[str, Dict], agents: Dict[str, Agent], graph_id: str) -> Dict[str, Task]:
+        def _translate_tasks_with_validation(self, nodes: List[Dict], edges: List[Dict],
+                                       node_lookup: Dict[str, Dict], agents: Dict[str, Agent], graph_id: str, validate_for_chat: bool = False) -> Dict[str, Task]:
         """Enhanced task translation with detailed error handling."""
         tasks = {}
         
@@ -558,10 +581,14 @@ class GraphTranslationService:
                 target_task = tasks[target_id]
                 
                 # Add source task as context for target task
-                if target_task.context is None:
-                    target_task.context = []
-                if source_task not in target_task.context:
-                    target_task.context.append(source_task)
+                try:
+                    if target_task.context is None or not hasattr(target_task.context, '__iter__'):
+                        target_task.context = []
+                    if source_task not in target_task.context:
+                        target_task.context.append(source_task)
+                except (AttributeError, TypeError):
+                    # If context attribute doesn't exist or has issues, create it
+                    target_task.context = [source_task]
                     logger.debug(f"Added context dependency: {source_id} -> {target_id}")
     
     def _determine_process_type(self, nodes: List[Dict], metadata: Dict[str, Any]) -> Process:
