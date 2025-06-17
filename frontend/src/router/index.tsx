@@ -8,6 +8,9 @@ import { DashboardPage } from '@/pages/Dashboard';
 import { GraphEditorPage } from '@/pages/GraphEditor';
 import { AppLayout } from '@/layouts/AppLayout';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ChatLayout } from '@/components/chat/ChatLayout';
+import { ChatInterface } from '@/components/chat/ChatInterface';
+import { ChatWelcome } from '@/components/chat/ChatWelcome';
 import { graphsLoader, graphLoader } from './loaders';
 
 const router = createBrowserRouter([
@@ -35,6 +38,21 @@ const router = createBrowserRouter([
         element: <GraphEditorPage />,
         loader: graphLoader,
         errorElement: <ErrorBoundary />
+      },
+      {
+        path: "graphs/:id/chat",
+        element: <ChatLayout />,
+        errorElement: <ErrorBoundary />,
+        children: [
+          {
+            index: true,
+            element: <ChatWelcome />,
+          },
+          {
+            path: ":threadId",
+            element: <ChatInterface />,
+          },
+        ],
       }
     ]
   },
