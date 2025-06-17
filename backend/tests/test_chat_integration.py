@@ -52,7 +52,7 @@ class TestChatStreamingIntegration:
     
     @patch('routers.messages.GraphTranslationService')
     @patch('routers.messages.execute_crew_stream')
-    async def test_complete_chat_flow_success(
+    def test_complete_chat_flow_success(
         self, 
         mock_execute_crew_stream,
         mock_graph_translation_service,
@@ -120,7 +120,7 @@ class TestChatStreamingIntegration:
         assistant_message = assistant_messages[-1]
         assert assistant_message.execution_id == execution.id
     
-    async def test_thread_access_validation(
+    def test_thread_access_validation(
         self,
         client,
         sample_user,
@@ -143,7 +143,7 @@ class TestChatStreamingIntegration:
         assert "Thread not found" in response_data["detail"]
     
     @patch('routers.messages.ThreadService')
-    async def test_concurrent_execution_prevention(
+    def test_concurrent_execution_prevention(
         self,
         mock_thread_service,
         client,
@@ -170,7 +170,7 @@ class TestChatStreamingIntegration:
         assert "already executing" in response_data["detail"]
     
     @patch('routers.messages.GraphTranslationService')
-    async def test_graph_translation_error_handling(
+    def test_graph_translation_error_handling(
         self,
         mock_graph_translation_service,
         client,
@@ -196,7 +196,7 @@ class TestChatStreamingIntegration:
         assert "error" in content.lower()
     
     @patch('routers.messages.execute_crew_stream')
-    async def test_crewai_execution_error_handling(
+    def test_crewai_execution_error_handling(
         self,
         mock_execute_crew_stream,
         client,
@@ -222,7 +222,7 @@ class TestChatStreamingIntegration:
         content = response.content.decode('utf-8')
         assert "error" in content.lower()
     
-    async def test_invalid_chat_request_validation(
+    def test_invalid_chat_request_validation(
         self,
         client,
         sample_thread,
@@ -348,7 +348,7 @@ class TestChatPerformanceIntegration:
     """Performance integration tests for chat functionality."""
     
     @pytest.mark.performance
-    async def test_streaming_response_performance(
+    def test_streaming_response_performance(
         self,
         client,
         sample_thread,
@@ -418,7 +418,7 @@ class TestChatPerformanceIntegration:
         assert success_rate >= 80.0, f"Success rate too low: {success_rate}%"
     
     @pytest.mark.performance
-    async def test_large_message_handling(
+    def test_large_message_handling(
         self,
         client,
         sample_thread,
@@ -453,7 +453,7 @@ class TestChatPerformanceIntegration:
 class TestChatErrorScenarios:
     """Test comprehensive error scenarios in chat functionality."""
     
-    async def test_authentication_error_handling(
+    def test_authentication_error_handling(
         self,
         client,
         sample_chat_request
@@ -467,7 +467,7 @@ class TestChatErrorScenarios:
         
         assert response.status_code == 401
     
-    async def test_invalid_thread_ownership(
+    def test_invalid_thread_ownership(
         self,
         client,
         sample_chat_request,
@@ -513,7 +513,7 @@ class TestChatErrorScenarios:
         
         assert response.status_code in [403, 404]  # Forbidden or not found
     
-    async def test_invalid_graph_configuration(
+    def test_invalid_graph_configuration(
         self,
         client,
         db_session,
@@ -556,7 +556,7 @@ class TestChatErrorScenarios:
         assert response.status_code in [400, 500]
     
     @patch('routers.messages.execute_crew_stream')
-    async def test_streaming_connection_interruption(
+    def test_streaming_connection_interruption(
         self,
         mock_execute_crew_stream,
         client,
