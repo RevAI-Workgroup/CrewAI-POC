@@ -23,7 +23,7 @@ This document lists all tasks associated with PBI-003.
 | [3-13](mdc:tasks/PBI-003-13.md) | Error Handling Implementation | Done | Comprehensive error management for chat |
 | [3-14](mdc:tasks/PBI-003-14.md) | Chat Backend Tests | Done | Integration testing for chat endpoints |
 | [3-15](mdc:tasks/PBI-003-15.md) | Chat Types Definition | Done | TypeScript interfaces for chat features |
-| [3-16](mdc:tasks/PBI-003-16.md) | Chat Store Implementation | Proposed | Zustand store for chat state management |
+| [3-16](mdc:tasks/PBI-003-16.md) | Chat Store Implementation | Done | Zustand store for chat state management |
 | [3-17](mdc:tasks/PBI-003-17.md) | Chat Service Implementation | Proposed | HTTP streaming service for frontend |
 | [3-18](mdc:tasks/PBI-003-18.md) | Chat Routes Configuration | Proposed | Router setup for chat interfaces |
 | [3-19](mdc:tasks/PBI-003-19.md) | Frontend Crew Restriction | Proposed | Single crew validation on frontend |
