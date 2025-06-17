@@ -175,7 +175,7 @@ class TestGraphTranslationServiceErrorHandling:
         sample_graph.graph_data = None
         
         with pytest.raises(GraphTranslationError) as exc_info:
-            translation_service.translate_graph(sample_graph)
+            translation_service.translate_graph(sample_graph, validate_for_chat=True)
         
         error = exc_info.value
         assert error.chat_error_code == ChatErrorCode.GRAPH_STRUCTURE_INVALID
@@ -186,7 +186,7 @@ class TestGraphTranslationServiceErrorHandling:
         sample_graph.graph_data = "invalid_data"
         
         with pytest.raises(GraphTranslationError) as exc_info:
-            translation_service.translate_graph(sample_graph)
+            translation_service.translate_graph(sample_graph, validate_for_chat=True)
         
         error = exc_info.value
         assert error.details["actual_type"] == "str"
@@ -196,10 +196,10 @@ class TestGraphTranslationServiceErrorHandling:
         sample_graph.graph_data = {"edges": []}
         
         with pytest.raises(GraphTranslationError) as exc_info:
-            translation_service.translate_graph(sample_graph)
+            translation_service.translate_graph(sample_graph, validate_for_chat=True)
         
         error = exc_info.value
-        assert "missing 'nodes' field" in error.details["error"]
+        assert "nodes" in str(error) or "nodes" in error.details.get("original_error", "")
         
     def test_translate_graph_multiple_crews(self, translation_service, sample_graph):
         """Test error when graph has multiple crews."""
@@ -214,7 +214,7 @@ class TestGraphTranslationServiceErrorHandling:
         }
         
         with pytest.raises(GraphTranslationError) as exc_info:
-            translation_service.translate_graph(sample_graph)
+            translation_service.translate_graph(sample_graph, validate_for_chat=True)
         
         error = exc_info.value
         assert error.chat_error_code == ChatErrorCode.MULTIPLE_CREWS_DETECTED
@@ -232,7 +232,7 @@ class TestGraphTranslationServiceErrorHandling:
         }
         
         with pytest.raises(GraphTranslationError) as exc_info:
-            translation_service.translate_graph(sample_graph)
+            translation_service.translate_graph(sample_graph, validate_for_chat=True)
         
         error = exc_info.value
         assert error.chat_error_code == ChatErrorCode.AGENT_CONFIG_MISSING

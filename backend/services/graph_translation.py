@@ -362,15 +362,19 @@ class GraphTranslationService:
                 # Re-raise chat-specific errors
                 raise
             except Exception as e:
-                # Convert unexpected errors
-                raise create_graph_structure_error(
-                    graph_id,
-                    {
-                        "error": f"Unexpected error translating agent {agent_id}",
-                        "original_error": str(e),
-                        "node_data": node
-                    }
-                )
+                # Convert unexpected errors based on context
+                if validate_for_chat:
+                    raise create_graph_structure_error(
+                        graph_id,
+                        {
+                            "error": f"Unexpected error translating agent {agent_id}",
+                            "original_error": str(e),
+                            "node_data": node
+                        }
+                    )
+                else:
+                    # For non-chat scenarios, use standard GraphTranslationError
+                    raise GraphTranslationError(f"Failed to translate agent {agent_id}: {str(e)}")
         
         return agents
     
@@ -477,15 +481,19 @@ class GraphTranslationService:
                     missing_fields.append("expected_output")
                 
                 if missing_fields:
-                    raise create_graph_structure_error(
-                        graph_id,
-                        {
-                            "error": f"Task {task_id} missing required fields: {missing_fields}",
-                            "node_id": task_id,
-                            "missing_fields": missing_fields,
-                            "task_data": task_data
-                        }
-                    )
+                    if validate_for_chat:
+                        raise create_graph_structure_error(
+                            graph_id,
+                            {
+                                "error": f"Task {task_id} missing required fields: {missing_fields}",
+                                "node_id": task_id,
+                                "missing_fields": missing_fields,
+                                "task_data": task_data
+                            }
+                        )
+                    else:
+                        # For non-chat scenarios, use standard GraphTranslationError
+                        raise GraphTranslationError(f"Task {task_id} missing required fields: {missing_fields}")
                 
                 # Find agent for this task through edges
                 task_agent = None
@@ -534,28 +542,36 @@ class GraphTranslationService:
                 # Re-raise chat-specific errors
                 raise
             except Exception as e:
-                # Convert unexpected errors
-                raise create_graph_structure_error(
-                    graph_id,
-                    {
-                        "error": f"Unexpected error translating task {task_id}",
-                        "original_error": str(e),
-                        "node_data": node
-                    }
-                )
+                # Convert unexpected errors based on context
+                if validate_for_chat:
+                    raise create_graph_structure_error(
+                        graph_id,
+                        {
+                            "error": f"Unexpected error translating task {task_id}",
+                            "original_error": str(e),
+                            "node_data": node
+                        }
+                    )
+                else:
+                    # For non-chat scenarios, use standard GraphTranslationError
+                    raise GraphTranslationError(f"Failed to translate task {task_id}: {str(e)}")
         
         # Second pass: resolve task dependencies
         try:
             self._resolve_task_dependencies(tasks, edges)
         except Exception as e:
-            raise create_graph_structure_error(
-                graph_id,
-                {
-                    "error": "Failed to resolve task dependencies",
-                    "dependency_error": str(e),
-                    "task_count": len(tasks)
-                }
-            )
+            if validate_for_chat:
+                raise create_graph_structure_error(
+                    graph_id,
+                    {
+                        "error": "Failed to resolve task dependencies",
+                        "dependency_error": str(e),
+                        "task_count": len(tasks)
+                    }
+                )
+            else:
+                # For non-chat scenarios, use standard GraphTranslationError
+                raise GraphTranslationError(f"Failed to resolve task dependencies: {str(e)}")
         
         return tasks
     
