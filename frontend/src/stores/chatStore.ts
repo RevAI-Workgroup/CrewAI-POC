@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, subscribeWithSelector } from 'zustand/middleware';
+import { chatService } from '@/services/chatService';
 import type {
   Thread,
   Message,
@@ -69,18 +70,7 @@ export const useChatStore = create<ChatStore>()(
               throw new Error('This graph already has an active chat thread. Only one crew per graph is supported.');
             }
 
-            // This will be implemented in Task 3-17 (Chat Service)
-            // For now, create a placeholder implementation
-            const thread: Thread = {
-              id: `temp-${Date.now()}`,
-              graph_id: graphId,
-              name,
-              description,
-              status: 'active',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              message_count: 0,
-            };
+            const thread = await chatService.createThread(graphId, name, description);
 
             set(state => ({ 
               threads: [thread, ...state.threads],
@@ -99,10 +89,8 @@ export const useChatStore = create<ChatStore>()(
           set({ loading: true, error: undefined });
           
           try {
-            // This will be implemented in Task 3-17 (Chat Service)
-            // For now, filter existing threads by graph_id
-            const graphThreads = get().threads.filter(t => t.graph_id === graphId && t.status === 'active');
-            set({ loading: false });
+            const threads = await chatService.getGraphThreads(graphId);
+            set({ threads, loading: false });
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to get threads';
             set({ error: errorMessage, loading: false });
@@ -110,28 +98,25 @@ export const useChatStore = create<ChatStore>()(
         },
 
         getThread: async (threadId: string): Promise<Thread> => {
-          const thread = get().threads.find(t => t.id === threadId);
-          if (!thread) {
-            throw new Error('Thread not found');
+          try {
+            const thread = await chatService.getThread(threadId);
+            
+            // Update store with fresh thread data
+            set(state => ({
+              threads: state.threads.map(t => t.id === threadId ? thread : t)
+            }));
+            
+            return thread;
+          } catch (error) {
+            throw new Error(error instanceof Error ? error.message : 'Thread not found');
           }
-          return thread;
         },
 
         updateThread: async (threadId: string, updates: Partial<ThreadUpdateRequest>): Promise<Thread> => {
           set({ loading: true, error: undefined });
           
           try {
-            // This will be implemented in Task 3-17 (Chat Service)
-            const thread = get().threads.find(t => t.id === threadId);
-            if (!thread) {
-              throw new Error('Thread not found');
-            }
-
-            const updatedThread: Thread = {
-              ...thread,
-              ...updates,
-              updated_at: new Date().toISOString(),
-            };
+            const updatedThread = await chatService.updateThread(threadId, updates);
 
             set(state => ({
               threads: state.threads.map(t => t.id === threadId ? updatedThread : t),
@@ -151,7 +136,8 @@ export const useChatStore = create<ChatStore>()(
           set({ loading: true, error: undefined });
           
           try {
-            // This will be implemented in Task 3-17 (Chat Service)
+            await chatService.deleteThread(threadId);
+            
             set(state => ({
               threads: state.threads.filter(t => t.id !== threadId),
               messages: Object.fromEntries(
@@ -179,10 +165,15 @@ export const useChatStore = create<ChatStore>()(
           set({ loading: true, error: undefined });
           
           try {
-            // This will be implemented in Task 3-17 (Chat Service)
-            // For now, return existing messages if any
-            const existingMessages = get().messages[threadId] || [];
-            set({ loading: false });
+            const messages = await chatService.getThreadMessages(threadId);
+            
+            set(state => ({
+              messages: {
+                ...state.messages,
+                [threadId]: messages
+              },
+              loading: false
+            }));
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to get messages';
             set({ error: errorMessage, loading: false });
@@ -203,24 +194,44 @@ export const useChatStore = create<ChatStore>()(
             };
 
             get().addMessage(userMessage);
-            set({ streaming: true });
+            set({ streaming: true, error: undefined });
 
-            // This will be implemented in Task 3-17 (Chat Service) with actual API call
-            // For now, create a mock assistant response
-            setTimeout(() => {
-              const assistantMessage: Message = {
-                id: `temp-assistant-${Date.now()}`,
-                thread_id: threadId,
-                content: `Mock response to: ${message}`,
-                message_type: 'assistant',
-                status: 'completed',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              };
+            // Create placeholder assistant message for streaming updates
+            const assistantMessage: Message = {
+              id: `temp-assistant-${Date.now()}`,
+              thread_id: threadId,
+              content: '',
+              message_type: 'assistant',
+              status: 'processing',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+            
+            get().addMessage(assistantMessage);
+
+            // Use real service with streaming
+            await chatService.sendMessageStream(threadId, message, output, (chunk: StreamingChunk) => {
+              if (chunk.content && chunk.message_id) {
+                // Update the assistant message with new content
+                get().updateMessage(assistantMessage.id, { 
+                  content: assistantMessage.content + chunk.content,
+                  status: 'processing'
+                });
+              }
               
-              get().addMessage(assistantMessage);
-              set({ streaming: false });
-            }, 1000);
+              if (chunk.done) {
+                get().updateMessage(assistantMessage.id, { status: 'completed' });
+                set({ streaming: false });
+              }
+              
+              if (chunk.error) {
+                get().updateMessage(assistantMessage.id, { 
+                  content: `Error: ${chunk.error}`,
+                  status: 'failed'
+                });
+                set({ error: chunk.error, streaming: false });
+              }
+            });
 
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to send message';
