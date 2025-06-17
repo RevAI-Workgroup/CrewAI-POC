@@ -301,7 +301,7 @@ class ErrorHandler:
         logger.error(f"Graph translation error for {graph_id} in {context}: {e}")
         
         error_msg = str(e)
-        if "multiple crew" in error_msg.lower():
+        if "multiple crew" in error_msg.lower() or ("crew" in error_msg.lower() and "exactly 1" in error_msg.lower()):
             # Extract crew count if available
             crew_count = 2  # Default assumption
             if "crew" in error_msg:
@@ -310,7 +310,8 @@ class ErrorHandler:
                     import re
                     numbers = re.findall(r'\d+', error_msg)
                     if numbers:
-                        crew_count = int(numbers[-1])
+                        # Get the first number found (likely the crew count)
+                        crew_count = int(numbers[0])
                 except:
                     pass
             return create_multiple_crews_error(graph_id, crew_count)

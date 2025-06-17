@@ -39,24 +39,31 @@ class TestExecutionRecordService:
     @pytest.fixture
     def sample_execution(self):
         """Sample execution record."""
-        return Execution(
-            id=str(uuid4()),
-            graph_id=str(uuid4()),
-            status=ExecutionStatus.PENDING.value,
-            execution_config={'test': 'config'},
-            progress_percentage=0
-        )
+        from unittest.mock import MagicMock
+        mock_execution = MagicMock()
+        mock_execution.id = str(uuid4())
+        mock_execution.graph_id = str(uuid4())
+        mock_execution.status = ExecutionStatus.PENDING.value
+        mock_execution.execution_config = {'test': 'config'}
+        mock_execution.progress_percentage = 0
+        mock_execution.add_log_entry = MagicMock()
+        return mock_execution
     
     @pytest.fixture
     def sample_message(self):
         """Sample message record."""
-        return Message(
-            id=str(uuid4()),
-            thread_id=str(uuid4()),
-            content="Test message",
-            message_type=MessageType.ASSISTANT.value,
-            status=MessageStatus.PENDING.value
-        )
+        from unittest.mock import MagicMock
+        mock_message = MagicMock()
+        mock_message.id = str(uuid4())
+        mock_message.thread_id = str(uuid4())
+        mock_message.content = "Test message"
+        mock_message.message_type = MessageType.ASSISTANT.value
+        mock_message.status = MessageStatus.PENDING.value
+        mock_message.link_execution = MagicMock()
+        mock_message.mark_processing = MagicMock()
+        mock_message.mark_completed = MagicMock()
+        mock_message.mark_failed = MagicMock()
+        return mock_message
     
     def test_create_chat_execution_success(self, execution_service, db_session):
         """Test successful execution creation."""
