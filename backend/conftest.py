@@ -7,13 +7,15 @@ import asyncio
 import os
 import pytest
 import tempfile
-from typing import AsyncGenerator, Generator
+from typing import AsyncGenerator, Generator, Dict, Any
 from unittest.mock import AsyncMock, MagicMock
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 # Set test environment variables before importing app modules
 os.environ.setdefault("TESTING", "1")
@@ -21,8 +23,16 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-testing-only")
 os.environ.setdefault("ENCRYPTION_KEY", "test-encryption-key-32-chars-long!")
 
-from main import app
-from db_config import Base, get_db
+from db_config import Base
+from utils.dependencies import get_db
+
+# Import routers for test app
+from routers.auth import router as auth_router
+from routers.graphs import router as graphs_router
+from routers.websocket import router as websocket_router
+from routers.messages import router as messages_router
+from routers.tools import router as tools_router
+from routers.threads import router as threads_router
 
 
 # Pytest configuration
@@ -139,6 +149,44 @@ async def async_db_session(test_async_engine) -> AsyncGenerator[AsyncSession, No
                 await transaction.rollback()
 
 
+def create_test_app() -> FastAPI:
+    """Create a test FastAPI app without the database startup lifespan manager."""
+    # Create FastAPI app without lifespan manager to avoid database startup issues
+    app = FastAPI(
+        title="CrewAI Backend Test",
+        description="Test version of CrewAI Backend API",
+        version="1.0.0"
+    )
+    
+    # Configure CORS
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    
+    # Include routers
+    app.include_router(auth_router, prefix="/api")
+    app.include_router(graphs_router, prefix="/api")
+    app.include_router(websocket_router, prefix="/api")
+    app.include_router(messages_router, prefix="/api")
+    app.include_router(tools_router, prefix="/api")
+    app.include_router(threads_router, prefix="/api")
+    
+    # Add basic health check for tests
+    @app.get("/")
+    async def root():
+        return {"message": "CrewAI Backend Test API is running"}
+    
+    @app.get("/health")
+    async def health_check():
+        return {"status": "healthy", "service": "crewai-backend-test"}
+    
+    return app
+
+
 @pytest.fixture(scope="function")
 def client(db_session):
     """Create a test client with dependency overrides."""
@@ -148,13 +196,15 @@ def client(db_session):
         finally:
             pass
     
-    app.dependency_overrides[get_db] = override_get_db
+    # Create test app without problematic lifespan manager
+    test_app = create_test_app()
+    test_app.dependency_overrides[get_db] = override_get_db
     
-    with TestClient(app) as test_client:
+    with TestClient(test_app) as test_client:
         yield test_client
     
     # Clear overrides
-    app.dependency_overrides.clear()
+    test_app.dependency_overrides.clear()
 
 
 # Mock fixtures for external services
