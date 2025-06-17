@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useReactFlow, type OnConnectStart, type OnConnectEnd, type IsValidConnection, type Connection, type Edge } from '@xyflow/react';
 import { useHandleSelection } from '@/contexts/HandleSelectionProvider';
 import { useGraphStore } from '@/stores';
-import { v4 as uuidv4 } from 'uuid';
+// import { v4 as uuidv4 } from 'uuid';
 
 interface ConnectionHandlerProps {
   setDraggedConnectionInfo: (info: any) => void;
@@ -16,8 +16,8 @@ export const useConnectionHandler = ({
   setDraggedConnectionInfo,
   setConnectionDropPosition,
   setShowConnectionDialog,
-  draggedConnectionInfo,
-  setEdges
+  draggedConnectionInfo
+  // setEdges
 }: ConnectionHandlerProps) => {
   const { getNode } = useReactFlow();
   const { startConnectionDrag, endConnectionDrag } = useHandleSelection();
