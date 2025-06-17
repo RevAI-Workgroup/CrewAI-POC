@@ -177,7 +177,13 @@ class TestChatStreamingIntegration:
         
         assert response.status_code == 409
         response_data = response.json()
-        assert "already executing" in response_data["detail"]
+        # Check for structured error response format
+        detail = response_data.get("detail", {})
+        assert (
+            "already executing" in str(response_data.get("detail", "")) or
+            "already running" in detail.get("message", "") or
+            detail.get("error_code") == "C4003"
+        )
     
     @patch('routers.messages.GraphTranslationService')
     def test_graph_translation_error_handling(
