@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist, subscribeWithSelector } from 'zustand/middleware';
 import { chatService } from '@/services/chatService';
+import { isGraphChatEligible, getGraphChatIneligibilityReason, countCrewNodes } from '@/utils/validation';
+import { useGraphStore } from './graphStore';
 import type {
   Thread,
   Message,
@@ -40,6 +42,8 @@ interface ChatStoreActions {
 
   // Single crew restriction validation
   validateSingleCrewRestriction: (graphId: string) => boolean;
+  isGraphChatEligible: (graphId: string) => Promise<{ eligible: boolean; reason?: string }>;
+  getChatEligibilityMessage: (graphId: string) => Promise<string | null>;
 }
 
 interface ChatStore extends ChatState, ChatStoreActions {}
@@ -64,10 +68,16 @@ export const useChatStore = create<ChatStore>()(
           set({ loading: true, error: undefined });
           
           try {
-            // Frontend validation: Check single crew restriction
+            // Enhanced validation: Check graph crew eligibility
+            const eligibility = await get().isGraphChatEligible(graphId);
+            if (!eligibility.eligible) {
+              throw new Error(eligibility.reason || 'Graph is not eligible for chat');
+            }
+
+            // Check existing threads (prevents multiple active threads)
             const canCreate = get().validateSingleCrewRestriction(graphId);
             if (!canCreate) {
-              throw new Error('This graph already has an active chat thread. Only one crew per graph is supported.');
+              throw new Error('This graph already has an active chat thread. Only one thread per graph is supported.');
             }
 
             const thread = await chatService.createThread(graphId, name, description);
@@ -310,6 +320,40 @@ export const useChatStore = create<ChatStore>()(
             t => t.graph_id === graphId && t.status === 'active'
           );
           return activeThreadsForGraph.length === 0;
+        },
+
+        // Enhanced graph crew eligibility check
+        isGraphChatEligible: async (graphId: string): Promise<{ eligible: boolean; reason?: string }> => {
+          try {
+            // Get graph data from graph store
+            const graphStore = useGraphStore.getState();
+            let graph = graphStore.getGraphById(graphId);
+            
+            // If graph not in store, fetch it
+            if (!graph) {
+              graph = await graphStore.fetchGraphById(graphId);
+            }
+            
+            if (!graph) {
+              return { eligible: false, reason: 'Graph not found' };
+            }
+            
+            // Check graph crew eligibility using validation utils
+            if (!isGraphChatEligible(graph)) {
+              const reason = getGraphChatIneligibilityReason(graph);
+              return { eligible: false, reason: reason || 'Graph is not eligible for chat' };
+            }
+            
+            return { eligible: true };
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Failed to validate graph eligibility';
+            return { eligible: false, reason: errorMessage };
+          }
+        },
+
+        getChatEligibilityMessage: async (graphId: string): Promise<string | null> => {
+          const eligibility = await get().isGraphChatEligible(graphId);
+          return eligibility.eligible ? null : eligibility.reason || 'Graph is not eligible for chat';
         },
       }),
       {

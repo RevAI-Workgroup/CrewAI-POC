@@ -45,3 +45,31 @@ export const validateRequired = (value: any): boolean => {
   }
   return value !== null && value !== undefined;
 };
+
+// Graph crew validation for chat functionality
+export const countCrewNodes = (graphData: any): number => {
+  if (!graphData) return 0;
+  
+  // Check both legacy format and new graph_data structure
+  const nodes = graphData.nodes || graphData.graph_data?.nodes || [];
+  return nodes.filter((node: any) => node.type === 'crew').length;
+};
+
+export const isGraphChatEligible = (graphData: any): boolean => {
+  const crewCount = countCrewNodes(graphData);
+  return crewCount === 1;
+};
+
+export const getGraphChatIneligibilityReason = (graphData: any): string | null => {
+  const crewCount = countCrewNodes(graphData);
+  
+  if (crewCount === 0) {
+    return "This graph has no crew nodes. At least one crew is required for chat functionality.";
+  }
+  
+  if (crewCount > 1) {
+    return "This graph has multiple crew nodes. Only graphs with exactly one crew can use chat functionality.";
+  }
+  
+  return null; // Graph is eligible
+};
