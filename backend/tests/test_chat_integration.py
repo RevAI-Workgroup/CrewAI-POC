@@ -12,6 +12,16 @@ from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 from uuid import uuid4
 
+def assert_enum_equals(actual, expected_enum):
+    """Helper function to compare enum values while avoiding SQLAlchemy ColumnElement type issues."""
+    if hasattr(actual, 'value'):
+        actual_value = actual.value
+    else:
+        actual_value = actual
+    
+    expected_value = expected_enum.value if hasattr(expected_enum, 'value') else expected_enum
+    assert actual_value == expected_value
+
 from main import app
 from models.user import User
 from models.thread import Thread, ThreadStatus
@@ -595,8 +605,8 @@ class TestChatServiceIntegration:
         
         assert thread is not None
         assert str(thread.graph_id) == str(sample_graph.id)
-        # Compare enum values directly (database stores enum values, not string representations)
-        assert thread.status == ThreadStatus.ACTIVE
+        # Compare enum values using helper function to avoid SQLAlchemy ColumnElement issues
+        assert_enum_equals(thread.status, ThreadStatus.ACTIVE)
         
         # Test thread access validation
         retrieved_thread = thread_service.get_thread(
@@ -646,8 +656,8 @@ class TestChatServiceIntegration:
         
         assert str(user_message.content) == "Integration test message"
         assert str(assistant_message.content) == "Integration test response"
-        # Compare enum values directly (database stores enum values, not string representations)
-        assert assistant_message.status == MessageStatus.COMPLETED
+        # Compare enum values using helper function to avoid SQLAlchemy ColumnElement issues
+        assert_enum_equals(assistant_message.status, MessageStatus.COMPLETED)
     
     @patch('services.graph_translation.GraphTranslationService.translate_graph')
     def test_graph_translation_service_integration(
