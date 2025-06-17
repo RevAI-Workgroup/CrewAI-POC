@@ -237,9 +237,12 @@ def mock_streaming_chunks():
 @pytest.fixture
 def auth_headers(sample_user):
     """Create authentication headers for API testing."""
-    # In real implementation, this would create a proper JWT token
+    from utils.auth import create_access_token
+    
+    # Create a proper JWT token like the working graph tests
+    token = create_access_token(data={"sub": str(sample_user.id), "pseudo": sample_user.pseudo})
     return {
-        "Authorization": f"Bearer test-token-{sample_user.id}",
+        "Authorization": f"Bearer {token}",
         "Content-Type": "application/json"
     }
 

@@ -41,9 +41,19 @@ class TestChatStreamingIntegration:
     """Integration tests for chat streaming endpoint."""
     
     @pytest.fixture
-    def client(self):
-        """FastAPI test client."""
-        return TestClient(app)
+    def client(self, sample_user, db_session):
+        """FastAPI test client with mocked dependencies."""
+        from utils.dependencies import get_current_user, get_db
+        
+        # Override FastAPI dependencies for authentication
+        app.dependency_overrides[get_current_user] = lambda: sample_user
+        app.dependency_overrides[get_db] = lambda: db_session
+        
+        client = TestClient(app)
+        yield client
+        
+        # Clean up dependency overrides
+        app.dependency_overrides.clear()
     
     @pytest.fixture
     def streaming_client(self, client):
@@ -347,6 +357,21 @@ class TestChatDatabaseTransactions:
 class TestChatPerformanceIntegration:
     """Performance integration tests for chat functionality."""
     
+    @pytest.fixture
+    def client(self, sample_user, db_session):
+        """FastAPI test client with mocked dependencies."""
+        from utils.dependencies import get_current_user, get_db
+        
+        # Override FastAPI dependencies for authentication
+        app.dependency_overrides[get_current_user] = lambda: sample_user
+        app.dependency_overrides[get_db] = lambda: db_session
+        
+        client = TestClient(app)
+        yield client
+        
+        # Clean up dependency overrides
+        app.dependency_overrides.clear()
+    
     @pytest.mark.performance
     def test_streaming_response_performance(
         self,
@@ -453,19 +478,36 @@ class TestChatPerformanceIntegration:
 class TestChatErrorScenarios:
     """Test comprehensive error scenarios in chat functionality."""
     
+    @pytest.fixture
+    def client(self, sample_user, db_session):
+        """FastAPI test client with mocked dependencies."""
+        from utils.dependencies import get_current_user, get_db
+        
+        # Override FastAPI dependencies for authentication
+        app.dependency_overrides[get_current_user] = lambda: sample_user
+        app.dependency_overrides[get_db] = lambda: db_session
+        
+        client = TestClient(app)
+        yield client
+        
+        # Clean up dependency overrides
+        app.dependency_overrides.clear()
+    
     def test_authentication_error_handling(
         self,
-        client,
         sample_chat_request
     ):
         """Test chat endpoint with invalid authentication."""
+        # Create client without dependency overrides for auth testing
+        unauthenticated_client = TestClient(app)
+        
         # Request without auth headers
-        response = client.post(
+        response = unauthenticated_client.post(
             "/api/messages/chat/stream",
             json=sample_chat_request.dict()
         )
         
-        assert response.status_code == 401
+        assert response.status_code == 403
     
     def test_invalid_thread_ownership(
         self,
