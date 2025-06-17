@@ -445,11 +445,11 @@ class GraphTranslationService:
         
         return tasks
 
-        def _translate_tasks_with_validation(self, nodes: List[Dict], edges: List[Dict],
+    def _translate_tasks_with_validation(self, nodes: List[Dict], edges: List[Dict],
                                        node_lookup: Dict[str, Dict], agents: Dict[str, Agent], graph_id: str, validate_for_chat: bool = False) -> Dict[str, Task]:
         """Enhanced task translation with detailed error handling."""
         tasks = {}
-        
+
         # First pass: create tasks without context dependencies
         for node in nodes:
             if node.get("type") != "task":
