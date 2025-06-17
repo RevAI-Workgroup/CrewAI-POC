@@ -370,17 +370,31 @@ class TestExecutionRecordService:
 class TestExecutionRecordServiceIntegration:
     """Integration tests for ExecutionRecordService with real database operations."""
     
+    @pytest.fixture
+    def execution_service(self, db_session):
+        """Create ExecutionRecordService instance for integration testing."""
+        from unittest.mock import MagicMock
+        from services.execution_record_service import ExecutionRecordService
+        
+        # Create service with mocked dependencies for integration tests
+        service = ExecutionRecordService(db_session)
+        service.status_service = MagicMock()
+        return service
+    
+    @pytest.mark.skip(reason="Integration test placeholder - not yet implemented")
     def test_full_execution_lifecycle(self, execution_service, db_session):
         """Test complete execution lifecycle from creation to completion."""
         # This would be implemented with actual database setup
         # for integration testing
         pass
     
+    @pytest.mark.skip(reason="Integration test placeholder - not yet implemented")
     def test_concurrent_execution_handling(self, execution_service, db_session):
         """Test handling of concurrent execution scenarios."""
         # This would test concurrent access to execution records
         pass
     
+    @pytest.mark.skip(reason="Integration test placeholder - not yet implemented")
     def test_transaction_rollback_scenarios(self, execution_service, db_session):
         """Test proper transaction handling and rollback."""
         # This would test rollback scenarios with real database
