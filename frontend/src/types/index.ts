@@ -31,3 +31,4 @@ export interface ApiError {
 export * from './auth.types';
 export * from './graph.types';
 export * from './api.types';
+export * from './chat.types';
